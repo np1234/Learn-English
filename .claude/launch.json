@@ -1,0 +1,17 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "english-app",
+      "runtimeExecutable": "py",
+      "runtimeArgs": ["-3", "-m", "http.server", "8137"],
+      "port": 8137
+    },
+    {
+      "name": "english-app-verify",
+      "runtimeExecutable": "py",
+      "runtimeArgs": ["-3", "-m", "http.server", "8322"],
+      "port": 8322
+    }
+  ]
+}

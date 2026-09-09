@@ -1,0 +1,307 @@
+// Vocabulary bank for the Vocabulary drill (Section 3 / track B).
+//
+// Same level keys as content/sentences.js. Weighted toward high-frequency
+// professional/workplace vocabulary - Sales Mode (Section 4) covers
+// conversational moves and phrases, not word knowledge, so there is no
+// overlap to worry about.
+//
+// PERSISTENCE WARNING: `id` is the FSRS card id and is stored in
+// profile.reviews forever (see srs.js / vocab.js). Treat the id list the
+// same way state.js's persistence contract treats a stored field: add new
+// entries freely, but never rename or remove an existing id - doing so
+// orphans that card's whole review history the way renaming a profile field
+// would silently drop it.
+//
+// Examples put the word in natural professional-leaning context and double
+// as the spoken production target in the drill, so they are kept sayable in
+// one breath (roughly 8-14 words).
+
+export const LEVELS = ['preA1', 'A1', 'A2', 'B1', 'B2'];
+
+export const VOCAB = {
+  preA1: [
+    { id: 'work', word: 'work', pos: 'n', he: 'עבודה', example: 'I go to work every morning at eight.' },
+    { id: 'job', word: 'job', pos: 'n', he: 'משרה', example: 'She found a new job last month.' },
+    { id: 'meeting', word: 'meeting', pos: 'n', he: 'פגישה', example: 'We have a meeting at ten o’clock.' },
+    { id: 'email', word: 'email', pos: 'n', he: 'אימייל', example: 'Please send me an email today.' },
+    { id: 'phone', word: 'phone', pos: 'n', he: 'טלפון', example: 'My phone is on the desk.' },
+    { id: 'computer', word: 'computer', pos: 'n', he: 'מחשב', example: 'The computer is very slow today.' },
+    { id: 'manager', word: 'manager', pos: 'n', he: 'מנהל', example: 'The manager wants to see you now.' },
+    { id: 'colleague', word: 'colleague', pos: 'n', he: 'עמית', example: 'My colleague sits next to me.' },
+    { id: 'office', word: 'office', pos: 'n', he: 'משרד', example: 'The office is closed on Friday.' },
+    { id: 'customer', word: 'customer', pos: 'n', he: 'לקוח', example: 'The customer asked about the price.' },
+    { id: 'money', word: 'money', pos: 'n', he: 'כסף', example: 'We need more money for this project.' },
+    { id: 'price', word: 'price', pos: 'n', he: 'מחיר', example: 'The price is too high for us.' },
+    { id: 'buy', word: 'buy', pos: 'v', he: 'לקנות', example: 'I want to buy a new laptop.' },
+    { id: 'sell', word: 'sell', pos: 'v', he: 'למכור', example: 'We sell products all over the country.' },
+    { id: 'help', word: 'help', pos: 'v', he: 'לעזור', example: 'Can you help me with this task?' },
+    { id: 'easy', word: 'easy', pos: 'adj', he: 'קל', example: 'This job is easy for me now.' },
+    { id: 'difficult', word: 'difficult', pos: 'adj', he: 'קשה', example: 'The exam was very difficult today.' },
+    { id: 'new', word: 'new', pos: 'adj', he: 'חדש', example: 'We hired a new employee this week.' },
+    { id: 'old', word: 'old', pos: 'adj', he: 'ישן', example: 'This is an old computer system.' },
+    { id: 'big', word: 'big', pos: 'adj', he: 'גדול', example: 'It is a very big company.' },
+    { id: 'small', word: 'small', pos: 'adj', he: 'קטן', example: 'We work in a small office.' },
+    { id: 'good', word: 'good', pos: 'adj', he: 'טוב', example: 'That was a good idea.' },
+    { id: 'bad', word: 'bad', pos: 'adj', he: 'רע', example: 'He had some bad news today.' },
+    { id: 'important', word: 'important', pos: 'adj', he: 'חשוב', example: 'This is an important meeting for us.' },
+    { id: 'day', word: 'day', pos: 'n', he: 'יום', example: 'I check my email every day.' },
+    { id: 'week', word: 'week', pos: 'n', he: 'שבוע', example: 'We have a team meeting once a week.' },
+    { id: 'time', word: 'time', pos: 'n', he: 'זמן', example: 'I do not have much time today.' },
+    { id: 'house', word: 'house', pos: 'n', he: 'בית', example: 'They bought a new house last year.' },
+    { id: 'car', word: 'car', pos: 'n', he: 'מכונית', example: 'My car is parked outside the office.' },
+    { id: 'water', word: 'water', pos: 'n', he: 'מים', example: 'Please bring me a glass of water.' },
+    { id: 'table', word: 'table', pos: 'n', he: 'שולחן', example: 'Put the documents on the table.' },
+    { id: 'door', word: 'door', pos: 'n', he: 'דלת', example: 'Please close the door behind you.' },
+    { id: 'city', word: 'city', pos: 'n', he: 'עיר', example: 'I live in a big city.' },
+    { id: 'street', word: 'street', pos: 'n', he: 'רחוב', example: 'The office is on a quiet street.' },
+    { id: 'family', word: 'family', pos: 'n', he: 'משפחה', example: 'I want to spend more time with my family.' },
+    { id: 'friend', word: 'friend', pos: 'n', he: 'חבר', example: 'My friend works in the same building.' },
+    { id: 'name', word: 'name', pos: 'n', he: 'שם', example: 'Please write your name at the top.' },
+    { id: 'number', word: 'number', pos: 'n', he: 'מספר', example: 'Can you give me your phone number?' },
+    { id: 'morning', word: 'morning', pos: 'n', he: 'בוקר', example: 'I read the news every morning.' },
+    { id: 'letter', word: 'letter', pos: 'n', he: 'מכתב', example: 'Please sign the letter before you send it.' },
+  ],
+  A1: [
+    { id: 'team', word: 'team', pos: 'n', he: 'צוות', example: 'Our team finished the project on time.' },
+    { id: 'project', word: 'project', pos: 'n', he: 'פרויקט', example: 'This project will take three months.' },
+    { id: 'deadline', word: 'deadline', pos: 'n', he: 'מועד אחרון', example: 'The deadline for the report is Friday.' },
+    { id: 'schedule', word: 'schedule', pos: 'n', he: 'לוח זמנים', example: 'Please check the schedule for tomorrow.' },
+    { id: 'report', word: 'report', pos: 'n', he: 'דוח', example: 'I need to write a report today.' },
+    { id: 'document', word: 'document', pos: 'n', he: 'מסמך', example: 'Please sign this document before you leave.' },
+    { id: 'plan', word: 'plan', pos: 'n', he: 'תוכנית', example: 'We have a plan for next year.' },
+    { id: 'decision', word: 'decision', pos: 'n', he: 'החלטה', example: 'The manager made a difficult decision.' },
+    { id: 'problem', word: 'problem', pos: 'n', he: 'בעיה', example: 'We found a problem with the order.' },
+    { id: 'solution', word: 'solution', pos: 'n', he: 'פתרון', example: 'She offered a good solution to the problem.' },
+    { id: 'question', word: 'question', pos: 'n', he: 'שאלה', example: 'I have a question about the contract.' },
+    { id: 'answer', word: 'answer', pos: 'n', he: 'תשובה', example: 'He gave a clear answer to the customer.' },
+    { id: 'information', word: 'information', pos: 'n', he: 'מידע', example: 'We need more information before we decide.' },
+    { id: 'experience', word: 'experience', pos: 'n', he: 'ניסיון', example: 'She has five years of experience in sales.' },
+    { id: 'skill', word: 'skill', pos: 'n', he: 'כישור', example: 'This job needs good computer skills.' },
+    { id: 'training', word: 'training', pos: 'n', he: 'הכשרה', example: 'New employees get training in the first week.' },
+    { id: 'salary', word: 'salary', pos: 'n', he: 'משכורת', example: 'The salary is paid at the end of the month.' },
+    { id: 'contract', word: 'contract', pos: 'n', he: 'חוזה', example: 'We signed the contract yesterday.' },
+    { id: 'client', word: 'client', pos: 'n', he: 'לקוח', example: 'Our client called about the new order.' },
+    { id: 'service', word: 'service', pos: 'n', he: 'שירות', example: 'The company offers good customer service.' },
+    { id: 'product', word: 'product', pos: 'n', he: 'מוצר', example: 'This product is very popular now.' },
+    { id: 'quality', word: 'quality', pos: 'n', he: 'איכות', example: 'We always check the quality of our work.' },
+    { id: 'delivery', word: 'delivery', pos: 'n', he: 'משלוח', example: 'The delivery will arrive on Monday.' },
+    { id: 'order', word: 'order', pos: 'n', he: 'הזמנה', example: 'Please confirm the order before Friday.' },
+    { id: 'invoice', word: 'invoice', pos: 'n', he: 'חשבונית', example: 'I sent the invoice this morning.' },
+    { id: 'budget', word: 'budget', pos: 'n', he: 'תקציב', example: 'Our budget for this project is limited.' },
+    { id: 'cost', word: 'cost', pos: 'n', he: 'עלות', example: 'The cost of the materials went up.' },
+    { id: 'profit', word: 'profit', pos: 'n', he: 'רווח', example: 'The company made a good profit this year.' },
+    { id: 'sales', word: 'sales', pos: 'n', he: 'מכירות', example: 'Sales increased a lot last quarter.' },
+    { id: 'market', word: 'market', pos: 'n', he: 'שוק', example: 'The market for this product is growing.' },
+    { id: 'company', word: 'company', pos: 'n', he: 'חברה', example: 'I work for a large company.' },
+    { id: 'business', word: 'business', pos: 'n', he: 'עסק', example: 'She started her own business last year.' },
+    { id: 'department', word: 'department', pos: 'n', he: 'מחלקה', example: 'He works in the sales department.' },
+    { id: 'staff', word: 'staff', pos: 'n', he: 'צוות עובדים', example: 'The staff meeting starts at nine.' },
+    { id: 'employee', word: 'employee', pos: 'n', he: 'עובד', example: 'Every employee gets two days off.' },
+    { id: 'employer', word: 'employer', pos: 'n', he: 'מעסיק', example: 'My employer is very supportive.' },
+    { id: 'responsibility', word: 'responsibility', pos: 'n', he: 'אחריות', example: 'This task is your responsibility now.' },
+    { id: 'task', word: 'task', pos: 'n', he: 'משימה', example: 'I finished my task before lunch.' },
+    { id: 'goal', word: 'goal', pos: 'n', he: 'מטרה', example: 'Our goal is to increase sales this year.' },
+    { id: 'success', word: 'success', pos: 'n', he: 'הצלחה', example: 'The launch was a big success.' },
+  ],
+  A2: [
+    { id: 'reliable', word: 'reliable', pos: 'adj', he: 'אמין', example: 'He is a reliable supplier, so we trust him.' },
+    { id: 'approve', word: 'approve', pos: 'v', he: 'לאשר', example: 'The manager will approve the budget tomorrow.' },
+    { id: 'negotiate', word: 'negotiate', pos: 'v', he: 'לנהל משא ומתן', example: 'We need to negotiate a better price.' },
+    { id: 'discuss', word: 'discuss', pos: 'v', he: 'לדון', example: 'Let’s discuss this problem at the meeting.' },
+    { id: 'agree', word: 'agree', pos: 'v', he: 'להסכים', example: 'I agree with your suggestion completely.' },
+    { id: 'disagree', word: 'disagree', pos: 'v', he: 'לא להסכים', example: 'She disagreed with the new schedule.' },
+    { id: 'suggest', word: 'suggest', pos: 'v', he: 'להציע', example: 'He suggested a different solution to us.' },
+    { id: 'recommend', word: 'recommend', pos: 'v', he: 'להמליץ', example: 'I recommend this supplier to every client.' },
+    { id: 'prefer', word: 'prefer', pos: 'v', he: 'להעדיף', example: 'I prefer to send an email instead.' },
+    { id: 'improve', word: 'improve', pos: 'v', he: 'לשפר', example: 'We want to improve our customer service.' },
+    { id: 'increase', word: 'increase', pos: 'v', he: 'לעלות', example: 'Sales increased by ten percent this month.' },
+    { id: 'decrease', word: 'decrease', pos: 'v', he: 'לרדת', example: 'Costs decreased after we changed suppliers.' },
+    { id: 'achieve', word: 'achieve', pos: 'v', he: 'להשיג', example: 'We achieved our sales target this quarter.' },
+    { id: 'complete', word: 'complete', pos: 'v', he: 'להשלים', example: 'Please complete the form before Friday.' },
+    { id: 'complain', word: 'complain', pos: 'v', he: 'להתלונן', example: 'The customer complained about the delivery time.' },
+    { id: 'apologize', word: 'apologize', pos: 'v', he: 'להתנצל', example: 'I want to apologize for the delay.' },
+    { id: 'confirm', word: 'confirm', pos: 'v', he: 'לאשר / לוודא', example: 'Can you confirm the meeting time?' },
+    { id: 'cancel', word: 'cancel', pos: 'v', he: 'לבטל', example: 'We had to cancel the order yesterday.' },
+    { id: 'postpone', word: 'postpone', pos: 'v', he: 'לדחות', example: 'They postponed the meeting until next week.' },
+    { id: 'arrange', word: 'arrange', pos: 'v', he: 'לתאם', example: 'I will arrange a call for tomorrow.' },
+    { id: 'organize', word: 'organize', pos: 'v', he: 'לארגן', example: 'She organized the whole event alone.' },
+    { id: 'manage', word: 'manage', pos: 'v', he: 'לנהל', example: 'He manages a team of ten people.' },
+    { id: 'supervise', word: 'supervise', pos: 'v', he: 'לפקח', example: 'She supervises the new employees closely.' },
+    { id: 'hire', word: 'hire', pos: 'v', he: 'לגייס', example: 'We plan to hire three new people.' },
+    { id: 'fire', word: 'fire', pos: 'v', he: 'לפטר', example: 'The company had to fire two workers.' },
+    { id: 'promote', word: 'promote', pos: 'v', he: 'לקדם', example: 'They promoted her to team manager.' },
+    { id: 'resign', word: 'resign', pos: 'v', he: 'להתפטר', example: 'He decided to resign from his position.' },
+    { id: 'retire', word: 'retire', pos: 'v', he: 'לפרוש', example: 'My manager will retire next year.' },
+    { id: 'attend', word: 'attend', pos: 'v', he: 'להיות נוכח', example: 'Everyone must attend the training session.' },
+    { id: 'participate', word: 'participate', pos: 'v', he: 'לקחת חלק', example: 'She participated actively in every meeting.' },
+    { id: 'contribute', word: 'contribute', pos: 'v', he: 'לתרום', example: 'Every team member contributed good ideas.' },
+    { id: 'cooperate', word: 'cooperate', pos: 'v', he: 'לשתף פעולה', example: 'The two departments cooperated on this project.' },
+    { id: 'communicate', word: 'communicate', pos: 'v', he: 'לתקשר', example: 'We communicate mainly by email and phone.' },
+    { id: 'explain', word: 'explain', pos: 'v', he: 'להסביר', example: 'Can you explain the process again, please?' },
+    { id: 'describe', word: 'describe', pos: 'v', he: 'לתאר', example: 'Please describe the problem in detail.' },
+    { id: 'compare', word: 'compare', pos: 'v', he: 'להשוות', example: 'Let’s compare the two offers carefully.' },
+    { id: 'analyze', word: 'analyze', pos: 'v', he: 'לנתח', example: 'The team analyzed the sales data yesterday.' },
+    { id: 'evaluate', word: 'evaluate', pos: 'v', he: 'להעריך', example: 'We evaluate performance every six months.' },
+    { id: 'present', word: 'present', pos: 'v', he: 'להציג', example: 'She will present the results tomorrow.' },
+    { id: 'presentation', word: 'presentation', pos: 'n', he: 'מצגת', example: 'His presentation was clear and short.' },
+    { id: 'feedback', word: 'feedback', pos: 'n', he: 'משוב', example: 'Thank you for your honest feedback.' },
+    { id: 'opportunity', word: 'opportunity', pos: 'n', he: 'הזדמנות', example: 'This is a great opportunity for growth.' },
+    { id: 'challenge', word: 'challenge', pos: 'n', he: 'אתגר', example: 'The biggest challenge was the tight deadline.' },
+    { id: 'advantage', word: 'advantage', pos: 'n', he: 'יתרון', example: 'Our main advantage is fast delivery.' },
+    { id: 'disadvantage', word: 'disadvantage', pos: 'n', he: 'חיסרון', example: 'The only disadvantage is the higher price.' },
+    { id: 'benefit', word: 'benefit', pos: 'n', he: 'הטבה', example: 'Health insurance is an important benefit.' },
+    { id: 'risk', word: 'risk', pos: 'n', he: 'סיכון', example: 'There is some risk in this decision.' },
+    { id: 'strategy', word: 'strategy', pos: 'n', he: 'אסטרטגיה', example: 'Our strategy is to focus on quality.' },
+    { id: 'target', word: 'target', pos: 'n', he: 'יעד', example: 'The sales target for June is high.' },
+    { id: 'progress', word: 'progress', pos: 'n', he: 'התקדמות', example: 'We are making good progress on this.' },
+    { id: 'performance', word: 'performance', pos: 'n', he: 'ביצועים', example: 'His performance improved a lot this year.' },
+    { id: 'efficient', word: 'efficient', pos: 'adj', he: 'יעיל', example: 'The new system is faster and more efficient.' },
+    { id: 'effective', word: 'effective', pos: 'adj', he: 'אפקטיבי', example: 'That was a very effective solution.' },
+    { id: 'flexible', word: 'flexible', pos: 'adj', he: 'גמיש', example: 'We offer flexible working hours.' },
+    { id: 'punctual', word: 'punctual', pos: 'adj', he: 'דייקן', example: 'He is always punctual for meetings.' },
+    { id: 'professional', word: 'professional', pos: 'adj', he: 'מקצועי', example: 'She gave a very professional presentation.' },
+    { id: 'competent', word: 'competent', pos: 'adj', he: 'כשיר', example: 'He is a competent and careful worker.' },
+    { id: 'confident', word: 'confident', pos: 'adj', he: 'בטוח בעצמו', example: 'She felt confident before the interview.' },
+    { id: 'priority', word: 'priority', pos: 'n', he: 'עדיפות', example: 'Customer satisfaction is our top priority.' },
+    { id: 'responsible', word: 'responsible', pos: 'adj', he: 'אחראי', example: 'He is responsible for the whole project.' },
+  ],
+  B1: [
+    { id: 'acknowledge', word: 'acknowledge', pos: 'v', he: 'לאשר קבלה', example: 'Please acknowledge receipt of this email.' },
+    { id: 'address', word: 'address', pos: 'v', he: 'להתייחס ל...', example: 'We need to address this issue quickly.' },
+    { id: 'allocate', word: 'allocate', pos: 'v', he: 'להקצות', example: 'The company allocated more budget to marketing.' },
+    { id: 'anticipate', word: 'anticipate', pos: 'v', he: 'לצפות מראש', example: 'We anticipate strong demand next quarter.' },
+    { id: 'assess', word: 'assess', pos: 'v', he: 'להעריך', example: 'The manager assessed each employee’s performance.' },
+    { id: 'assign', word: 'assign', pos: 'v', he: 'להטיל משימה', example: 'She assigned the task to a junior colleague.' },
+    { id: 'assume', word: 'assume', pos: 'v', he: 'להניח', example: 'Let’s not assume the client will agree.' },
+    { id: 'calculate', word: 'calculate', pos: 'v', he: 'לחשב', example: 'Please calculate the total cost by tomorrow.' },
+    { id: 'clarify', word: 'clarify', pos: 'v', he: 'להבהיר', example: 'Could you clarify what you mean exactly?' },
+    { id: 'collaborate', word: 'collaborate', pos: 'v', he: 'לשתף פעולה', example: 'The two teams collaborated on the new product.' },
+    { id: 'commit', word: 'commit', pos: 'v', he: 'להתחייב', example: 'We committed to finishing by next Monday.' },
+    { id: 'compensate', word: 'compensate', pos: 'v', he: 'לפצות', example: 'The company compensated him for the delay.' },
+    { id: 'comply', word: 'comply', pos: 'v', he: 'לעמוד בדרישות', example: 'All staff must comply with the new policy.' },
+    { id: 'consult', word: 'consult', pos: 'v', he: 'להתייעץ', example: 'I will consult my manager before deciding.' },
+    { id: 'delegate', word: 'delegate', pos: 'v', he: 'להאציל סמכויות', example: 'A good leader knows how to delegate tasks.' },
+    { id: 'demonstrate', word: 'demonstrate', pos: 'v', he: 'להדגים', example: 'She demonstrated the product to the client.' },
+    { id: 'determine', word: 'determine', pos: 'v', he: 'לקבוע', example: 'We still need to determine the final price.' },
+    { id: 'emphasize', word: 'emphasize', pos: 'v', he: 'להדגיש', example: 'He emphasized the importance of the deadline.' },
+    { id: 'ensure', word: 'ensure', pos: 'v', he: 'להבטיח', example: 'Please ensure the report is ready by noon.' },
+    { id: 'establish', word: 'establish', pos: 'v', he: 'לבסס / להקים', example: 'They established the company ten years ago.' },
+    { id: 'estimate', word: 'estimate', pos: 'v', he: 'לאמוד', example: 'Can you estimate how long this will take?' },
+    { id: 'exceed', word: 'exceed', pos: 'v', he: 'לעלות על', example: 'Our sales exceeded expectations this quarter.' },
+    { id: 'expand', word: 'expand', pos: 'v', he: 'להתרחב', example: 'The company plans to expand into new markets.' },
+    { id: 'facilitate', word: 'facilitate', pos: 'v', he: 'להקל / לאפשר', example: 'The new software facilitates faster communication.' },
+    { id: 'finalize', word: 'finalize', pos: 'v', he: 'לסכם סופית', example: 'We need to finalize the contract this week.' },
+    { id: 'forecast', word: 'forecast', pos: 'n', he: 'תחזית', example: 'The forecast shows growth in the next quarter.' },
+    { id: 'guarantee', word: 'guarantee', pos: 'v', he: 'להבטיח', example: 'We guarantee delivery within five working days.' },
+    { id: 'identify', word: 'identify', pos: 'v', he: 'לזהות', example: 'We identified the main problem quickly.' },
+    { id: 'implement', word: 'implement', pos: 'v', he: 'ליישם', example: 'The team will implement the new process next month.' },
+    { id: 'indicate', word: 'indicate', pos: 'v', he: 'לציין / להצביע על', example: 'The data indicates a rise in demand.' },
+    { id: 'influence', word: 'influence', pos: 'v', he: 'להשפיע', example: 'His opinion influenced the final decision.' },
+    { id: 'initiate', word: 'initiate', pos: 'v', he: 'ליזום', example: 'She initiated the project last spring.' },
+    { id: 'insist', word: 'insist', pos: 'v', he: 'להתעקש', example: 'The client insisted on a lower price.' },
+    { id: 'investigate', word: 'investigate', pos: 'v', he: 'לחקור', example: 'We are investigating the cause of the delay.' },
+    { id: 'justify', word: 'justify', pos: 'v', he: 'להצדיק', example: 'He had to justify the extra cost to the board.' },
+    { id: 'maintain', word: 'maintain', pos: 'v', he: 'לשמר / לתחזק', example: 'It is important to maintain good relationships with clients.' },
+    { id: 'minimize', word: 'minimize', pos: 'v', he: 'למזער', example: 'We try to minimize costs wherever possible.' },
+    { id: 'maximize', word: 'maximize', pos: 'v', he: 'למקסם', example: 'Our goal is to maximize customer satisfaction.' },
+    { id: 'monitor', word: 'monitor', pos: 'v', he: 'לעקוב אחר', example: 'We monitor performance every single week.' },
+    { id: 'notify', word: 'notify', pos: 'v', he: 'להודיע', example: 'Please notify the team about the schedule change.' },
+    { id: 'obtain', word: 'obtain', pos: 'v', he: 'להשיג', example: 'You must obtain approval before you proceed.' },
+    { id: 'outline', word: 'outline', pos: 'v', he: 'לתאר בקווים כלליים', example: 'Let me outline the main points of the plan.' },
+    { id: 'overcome', word: 'overcome', pos: 'v', he: 'להתגבר על', example: 'We overcame several challenges during this project.' },
+    { id: 'prioritize', word: 'prioritize', pos: 'v', he: 'לתעדף', example: 'You need to prioritize the most urgent tasks.' },
+    { id: 'proceed', word: 'proceed', pos: 'v', he: 'להמשיך', example: 'Let’s proceed to the next item on the agenda.' },
+    { id: 'propose', word: 'propose', pos: 'v', he: 'להציע', example: 'She proposed a new approach to the problem.' },
+    { id: 'pursue', word: 'pursue', pos: 'v', he: 'לשאוף ל...', example: 'He decided to pursue a career in sales.' },
+    { id: 'recognize', word: 'recognize', pos: 'v', he: 'להכיר בערך של...', example: 'The company recognized her hard work publicly.' },
+    { id: 'reduce', word: 'reduce', pos: 'v', he: 'לצמצם', example: 'We reduced costs without losing quality.' },
+    { id: 'reinforce', word: 'reinforce', pos: 'v', he: 'לחזק', example: 'This feedback reinforces our original strategy.' },
+    { id: 'resolve', word: 'resolve', pos: 'v', he: 'לפתור', example: 'We resolved the issue within one day.' },
+    { id: 'respond', word: 'respond', pos: 'v', he: 'להגיב', example: 'Please respond to the client as soon as possible.' },
+    { id: 'restrict', word: 'restrict', pos: 'v', he: 'להגביל', example: 'The new policy restricts personal phone use at work.' },
+    { id: 'review', word: 'review', pos: 'v', he: 'לסקור / לבחון', example: 'The manager will review the report tomorrow.' },
+    { id: 'revise', word: 'revise', pos: 'v', he: 'לתקן / לעדכן', example: 'We need to revise the schedule after the delay.' },
+    { id: 'secure', word: 'secure', pos: 'v', he: 'לזכות ב... / להבטיח', example: 'The team secured a major new client.' },
+    { id: 'submit', word: 'submit', pos: 'v', he: 'להגיש', example: 'Please submit your report by Friday morning.' },
+    { id: 'sustain', word: 'sustain', pos: 'v', he: 'לקיים / לשמר', example: 'Can we sustain this growth next year too?' },
+    { id: 'tackle', word: 'tackle', pos: 'v', he: 'להתמודד עם', example: 'We need to tackle this problem right now.' },
+    { id: 'withdraw', word: 'withdraw', pos: 'v', he: 'למשוך / לסגת', example: 'The company withdrew its offer at the last moment.' },
+  ],
+  B2: [
+    { id: 'accountability', word: 'accountability', pos: 'n', he: 'אחריותיות', example: 'We need more accountability in this department.' },
+    { id: 'ambiguous', word: 'ambiguous', pos: 'adj', he: 'עמום / דו-משמעי', example: 'The instructions were ambiguous, so people got confused.' },
+    { id: 'arbitrary', word: 'arbitrary', pos: 'adj', he: 'שרירותי', example: 'The decision seemed arbitrary and unfair to the staff.' },
+    { id: 'autonomy', word: 'autonomy', pos: 'n', he: 'אוטונומיה', example: 'The team has full autonomy over daily decisions.' },
+    { id: 'bureaucracy', word: 'bureaucracy', pos: 'n', he: 'בירוקרטיה', example: 'Too much bureaucracy slows down every approval.' },
+    { id: 'consensus', word: 'consensus', pos: 'n', he: 'הסכמה כללית', example: 'The board finally reached a consensus on the budget.' },
+    { id: 'contingency', word: 'contingency', pos: 'n', he: 'תוכנית חירום', example: 'We always prepare a contingency plan for delays.' },
+    { id: 'credibility', word: 'credibility', pos: 'n', he: 'אמינות', example: 'Missing deadlines damages your credibility with clients.' },
+    { id: 'discrepancy', word: 'discrepancy', pos: 'n', he: 'אי-התאמה', example: 'There is a discrepancy between the two reports.' },
+    { id: 'diversify', word: 'diversify', pos: 'v', he: 'לגוון', example: 'The company wants to diversify its product line.' },
+    { id: 'entrepreneur', word: 'entrepreneur', pos: 'n', he: 'יזם', example: 'She became a successful entrepreneur at a young age.' },
+    { id: 'feasible', word: 'feasible', pos: 'adj', he: 'בר-ביצוע', example: 'Is this plan actually feasible within our budget?' },
+    { id: 'hierarchy', word: 'hierarchy', pos: 'n', he: 'היררכיה', example: 'Decisions go through several levels of hierarchy.' },
+    { id: 'incentive', word: 'incentive', pos: 'n', he: 'תמריץ', example: 'The bonus is a strong incentive to work harder.' },
+    { id: 'inevitable', word: 'inevitable', pos: 'adj', he: 'בלתי נמנע', example: 'Some delays are simply inevitable in this industry.' },
+    { id: 'innovate', word: 'innovate', pos: 'v', he: 'לחדש', example: 'We must innovate constantly to stay competitive.' },
+    { id: 'integrate', word: 'integrate', pos: 'v', he: 'לשלב', example: 'We plan to integrate the two systems next year.' },
+    { id: 'jeopardize', word: 'jeopardize', pos: 'v', he: 'לסכן', example: 'A single mistake could jeopardize the whole deal.' },
+    { id: 'leverage', word: 'leverage', pos: 'v', he: 'למנף', example: 'We can leverage our reputation to win new clients.' },
+    { id: 'liability', word: 'liability', pos: 'n', he: 'אחריות משפטית', example: 'The company faces liability for the damaged goods.' },
+    { id: 'mitigate', word: 'mitigate', pos: 'v', he: 'למתן / להקטין', example: 'We took steps to mitigate the financial risk.' },
+    { id: 'momentum', word: 'momentum', pos: 'n', he: 'תנופה', example: 'The project lost momentum after the manager left.' },
+    { id: 'obsolete', word: 'obsolete', pos: 'adj', he: 'מיושן', example: 'This software became obsolete two years ago.' },
+    { id: 'optimize', word: 'optimize', pos: 'v', he: 'למטב', example: 'We are trying to optimize our delivery routes.' },
+    { id: 'outsource', word: 'outsource', pos: 'v', he: 'למיקור חוץ', example: 'The company decided to outsource its customer support.' },
+    { id: 'oversight', word: 'oversight', pos: 'n', he: 'פיקוח', example: 'The project needs closer oversight from senior staff.' },
+    { id: 'paradigm', word: 'paradigm', pos: 'n', he: 'פרדיגמה / תפיסה', example: 'This success represents a shift in our business paradigm.' },
+    { id: 'pragmatic', word: 'pragmatic', pos: 'adj', he: 'פרגמטי / מעשי', example: 'He took a pragmatic approach to solving the problem.' },
+    { id: 'precedent', word: 'precedent', pos: 'n', he: 'תקדים', example: 'This decision sets a precedent for future cases.' },
+    { id: 'redundant', word: 'redundant', pos: 'adj', he: 'מיותר / עודף', example: 'Some of the old procedures are now redundant.' },
+    { id: 'resilient', word: 'resilient', pos: 'adj', he: 'חסין / עמיד', example: 'Our business proved resilient during the difficult year.' },
+    { id: 'scrutiny', word: 'scrutiny', pos: 'n', he: 'בדיקה קפדנית', example: 'The contract came under close scrutiny before signing.' },
+    { id: 'stakeholder', word: 'stakeholder', pos: 'n', he: 'בעל עניין', example: 'Every stakeholder was informed about the new plan.' },
+    { id: 'streamline', word: 'streamline', pos: 'v', he: 'לייעל', example: 'We streamlined the process to save time.' },
+    { id: 'subsidiary', word: 'subsidiary', pos: 'n', he: 'חברת בת', example: 'The company opened a subsidiary in another country.' },
+    { id: 'synergy', word: 'synergy', pos: 'n', he: 'סינרגיה', example: 'The merger created real synergy between the two teams.' },
+    { id: 'tangible', word: 'tangible', pos: 'adj', he: 'מוחשי', example: 'We need tangible results, not just promises.' },
+    { id: 'transparent', word: 'transparent', pos: 'adj', he: 'שקוף', example: 'The manager was completely transparent about the budget.' },
+    { id: 'versatile', word: 'versatile', pos: 'adj', he: 'רב-תכליתי', example: 'She is a versatile employee who can do many roles.' },
+    { id: 'viable', word: 'viable', pos: 'adj', he: 'בר-קיימא / ישים', example: 'Is this business model still viable long term?' },
+  ],
+};
+
+/**
+ * Draw `n` unseen entries starting at `level`, fanning outward (own level,
+ * then +1, -1, +2, -2, ...) when a level runs dry - mirrors the fallback
+ * pattern in content/sentences.js's pickOne(). `excludeIds` is normally the
+ * set of ids already present in profile.reviews.
+ */
+export function pickNew(level, n, excludeIds = new Set()) {
+  const idx = Math.max(0, LEVELS.indexOf(level));
+  const offsets = [0];
+  for (let d = 1; d < LEVELS.length; d++) offsets.push(d, -d);
+
+  const pool = [];
+  const seen = new Set();
+  for (const off of offsets) {
+    const lvl = LEVELS[idx + off];
+    if (!lvl || !VOCAB[lvl]) continue;
+    for (const entry of VOCAB[lvl]) {
+      if (excludeIds.has(entry.id) || seen.has(entry.id)) continue;
+      seen.add(entry.id);
+      pool.push(entry);
+    }
+    if (pool.length >= n) break;
+  }
+  return pool.slice(0, n);
+}
+
+/** Look up a bank entry by its stored FSRS card id. */
+export function byId(id) {
+  for (const lvl of LEVELS) {
+    const found = (VOCAB[lvl] || []).find((e) => e.id === id);
+    if (found) return found;
+  }
+  return null;
+}

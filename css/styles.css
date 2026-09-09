@@ -1,0 +1,600 @@
+/* Mobile-first. Sized for a phone held in one hand; scales up on desktop.
+   Tap targets are kept at 44px+ per Apple's guidance, and inputs at 16px so
+   Safari does not zoom the page when they are focused. */
+
+:root {
+  --bg: #f6f7f9;
+  --card: #ffffff;
+  --ink: #14161c;
+  --ink-soft: #5c6472;
+  --line: #e3e6ec;
+  --accent: #2f6df6;
+  --accent-ink: #ffffff;
+  --great: #16a34a;
+  --good: #4d9f2f;
+  --ok: #d18616;
+  --weak: #dc2626;
+  --rec: #e0342c;
+  --radius: 16px;
+  --shadow: 0 1px 2px rgba(16, 20, 28, .06), 0 8px 24px rgba(16, 20, 28, .06);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0e1015;
+    --card: #171a21;
+    --ink: #eef1f6;
+    --ink-soft: #99a2b2;
+    --line: #262b35;
+    --accent: #5b8dff;
+    --accent-ink: #08111f;
+    --shadow: 0 1px 2px rgba(0, 0, 0, .4), 0 8px 24px rgba(0, 0, 0, .3);
+  }
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font: 16px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans Hebrew", Arial, Roboto, system-ui, sans-serif;
+  -webkit-text-size-adjust: 100%;
+  overscroll-behavior-y: none;
+}
+
+button, input, textarea { font: inherit; color: inherit; }
+button { -webkit-tap-highlight-color: transparent; }
+
+.app {
+  max-width: 640px;
+  margin: 0 auto;
+  padding: 16px 16px calc(88px + env(safe-area-inset-bottom));
+}
+
+/* ------------------------------------------------------------- cards */
+
+.card {
+  background: var(--card);
+  border-radius: var(--radius);
+  padding: 20px;
+  margin-bottom: 14px;
+  box-shadow: var(--shadow);
+}
+
+.card h1 { font-size: 28px; margin: 0 0 8px; letter-spacing: -.02em; }
+.welcome { padding-top: 32px; padding-bottom: 28px; }
+.card h2 { font-size: 19px; margin: 0 0 10px; letter-spacing: -.01em; }
+.card h3 { font-size: 15px; margin: 16px 0 6px; }
+
+.lede { color: var(--ink-soft); margin: 0 0 20px; }
+.hint { color: var(--ink-soft); margin: 8px 0; }
+.hint.small, .small { font-size: 13.5px; }
+.label { display: block; font-size: 14px; color: var(--ink-soft); margin-bottom: 6px; }
+
+.greeting { font-size: 15px; color: var(--ink-soft); margin: 0 0 12px; }
+.week-line { font-size: 14px; font-weight: 600; margin: -8px 0 2px; }
+.phase-line { margin: 0 0 12px; }
+
+/* ----------------------------------------------------------- buttons */
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 48px;
+  padding: 12px 18px;
+  border: 1px solid transparent;
+  border-radius: 12px;
+  background: var(--line);
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform .08s ease, opacity .15s ease;
+}
+.btn:active { transform: scale(.98); }
+.btn:disabled { opacity: .5; }
+
+.btn.primary { background: var(--accent); color: var(--accent-ink); }
+.btn.ghost { background: transparent; border-color: var(--line); }
+.btn.wide { width: 100%; margin-top: 12px; }
+
+.btn.record {
+  width: 100%;
+  margin-top: 12px;
+  background: var(--rec);
+  color: #fff;
+}
+.btn.record.recording { animation: pulse 1.4s ease-in-out infinite; }
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: .72; }
+}
+
+.link {
+  background: none;
+  border: 0;
+  padding: 6px 2px;
+  color: var(--accent);
+  font-size: 14px;
+  cursor: pointer;
+}
+.link.danger { color: var(--weak); }
+
+.row { display: flex; gap: 10px; margin-top: 12px; flex-wrap: wrap; }
+.row > .btn { flex: 1 1 0; min-width: 130px; }
+
+/* ------------------------------------------------------------- chips */
+
+.chips { display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0 4px; }
+.chip {
+  min-height: 44px;
+  padding: 10px 16px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: transparent;
+  cursor: pointer;
+  font-weight: 600;
+}
+.chip.on { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+
+.pill {
+  display: inline-block;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: var(--line);
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--ink-soft);
+}
+
+/* ------------------------------------------------------------ drills */
+
+.drill-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 14px;
+}
+
+.target {
+  font-size: 22px;
+  line-height: 1.4;
+  font-weight: 600;
+  letter-spacing: -.01em;
+  margin: 8px 0 14px;
+}
+.target.passage { font-size: 18px; font-weight: 500; }
+
+.step { margin: 14px 0 8px; font-size: 15px; }
+
+.hints { margin: 4px 0 0; padding-inline-start: 18px; color: var(--ink-soft); font-size: 14px; }
+.hints li { margin-bottom: 6px; }
+
+.clock {
+  font-size: 44px;
+  font-weight: 700;
+  text-align: center;
+  margin: 18px 0 8px;
+  font-variant-numeric: tabular-nums;
+}
+
+.record-wrap { display: block; }
+.rec-time {
+  display: block;
+  text-align: center;
+  margin-top: 8px;
+  color: var(--ink-soft);
+  font-variant-numeric: tabular-nums;
+}
+
+.feedback { margin-top: 6px; }
+.feedback audio, .compare audio { width: 100%; margin-top: 10px; }
+
+.compare { margin-top: 14px; display: flex; flex-direction: column; gap: 10px; }
+.compare .btn { width: 100%; }
+
+/* ---------------------------------------------------------- feedback */
+
+.verdict { margin: 14px 0 8px; font-size: 17px; }
+.verdict.great strong { color: var(--great); }
+.verdict.good strong  { color: var(--good); }
+.verdict.ok strong    { color: var(--ok); }
+.verdict.weak strong  { color: var(--weak); }
+.wpm { color: var(--ink-soft); font-size: 14px; }
+
+.words { line-height: 2.1; margin: 6px 0; }
+.word { padding: 3px 5px; border-radius: 6px; }
+.word.ok      { background: rgba(22, 163, 74, .14); }
+.word.wrong   { background: rgba(220, 38, 38, .16); text-decoration: underline wavy var(--weak); }
+.word.missing { background: rgba(209, 134, 22, .16); opacity: .75; }
+.word.unknown { background: transparent; }
+
+/* ------------------------------------------- per-word mistake detail
+
+   One always-visible card per wrong/missing word - see js/drills/common.js
+   renderMistakes(). Reuses the .hint-item look (via a .flat modifier) and the
+   existing --weak/--ok/--line/--bg/--ink-soft tokens rather than new colors. */
+
+.mistakes { margin: 10px 0 4px; }
+.mistakes-title { font-size: 13px; font-weight: 600; color: var(--ink-soft); margin: 14px 0 6px; }
+
+.miss-item { border: 1px solid var(--line); border-radius: 12px; overflow: hidden; margin-bottom: 10px; }
+.miss-head {
+  display: flex; align-items: baseline; flex-wrap: wrap; gap: 5px 10px;
+  padding: 10px 14px; background: var(--bg); border-bottom: 1px solid var(--line); font-size: 14.5px;
+}
+.miss-word  { font-weight: 700; }
+.miss-said  { color: var(--ink-soft); font-size: 13px; }
+.miss-heard { font-weight: 700; color: var(--weak); }
+.miss-head.missing .miss-said { color: var(--ok); font-weight: 600; }
+
+.miss-item .hint-item.flat { margin: 0; border: none; border-radius: 0; }
+.miss-plain { margin: 0; padding: 12px 14px; font-size: 14.5px; color: var(--ink-soft); }
+
+.error { color: var(--weak); font-size: 14.5px; margin: 10px 0; }
+.ok-line { color: var(--great); font-size: 14.5px; margin: 10px 0; }
+
+/* ---------------------------------------------------------- progress */
+
+.progress {
+  height: 8px;
+  background: var(--line);
+  border-radius: 999px;
+  overflow: hidden;
+  margin: 12px 0;
+}
+.progress.thin { height: 6px; margin: 6px 0 12px; }
+.progress-fill {
+  height: 100%;
+  background: var(--accent);
+  border-radius: 999px;
+  transition: width .3s ease;
+}
+
+.head-card {
+  background: linear-gradient(180deg,
+    color-mix(in srgb, var(--accent) 10%, var(--card)),
+    var(--card) 65%);
+  border: 1px solid color-mix(in srgb, var(--accent) 16%, transparent);
+}
+
+.big-stat { font-size: 30px; font-weight: 700; margin: 0; letter-spacing: -.02em; }
+.ring-row { display: flex; justify-content: space-between; align-items: flex-end; gap: 16px; }
+.streak { text-align: end; }
+
+.stat-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+.stat-grid .big-stat { font-size: 24px; }
+
+/* ------------------------------------------------------------- tasks */
+
+.tasks { display: flex; flex-direction: column; gap: 10px; }
+.task {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  text-align: start;
+  padding: 14px 16px;
+  min-height: 64px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: transparent;
+  cursor: pointer;
+}
+.task:active { transform: scale(.99); }
+.task-main { display: flex; flex-direction: column; gap: 3px; }
+.task-blurb { font-size: 13px; color: var(--ink-soft); font-weight: 400; }
+.task-min { font-size: 13px; color: var(--ink-soft); white-space: nowrap; }
+.task.soon { opacity: .55; }
+.task.done {
+  border-color: color-mix(in srgb, var(--great) 35%, var(--line));
+  background: color-mix(in srgb, var(--great) 6%, transparent);
+}
+.task.done .task-min { color: var(--great); font-weight: 700; }
+
+/* Missed-day recovery card - amber (--ok), not the alarm-red --weak. The
+   streak already reset honestly; this is an invitation back in, not a scold. */
+.card.recovery {
+  border: 1px solid color-mix(in srgb, var(--ok) 30%, var(--line));
+  background: color-mix(in srgb, var(--ok) 6%, var(--card));
+}
+.card.recovery p { margin: 0 0 10px; }
+
+/* ------------------------------------------------------------ levels */
+
+.lvl-row { margin-bottom: 16px; }
+.lvl-head { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; margin-bottom: 8px; }
+.lvl { font-size: 13px; color: var(--ink-soft); }
+.ladder { display: flex; gap: 4px; }
+.rung { flex: 1; height: 6px; border-radius: 999px; background: var(--line); }
+.rung.on { background: var(--accent); }
+
+.level-list, .check-list { list-style: none; padding: 0; margin: 12px 0; }
+.level-list li, .check-list li {
+  padding: 12px 0;
+  border-bottom: 1px solid var(--line);
+}
+.level-list li:last-child, .check-list li:last-child { border-bottom: 0; }
+
+.phon-row { margin-bottom: 12px; }
+.phon-head { display: flex; justify-content: space-between; align-items: baseline; }
+
+.sess-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--line);
+  text-transform: capitalize;
+}
+.sess-row:last-child { border-bottom: 0; }
+
+/* -------------------------------------------------------- calendar
+
+   A record of what actually happened, not a plan drawn forward - see
+   program.js. Deliberately NOT given a fixed direction: in a Hebrew page the
+   grid should mirror so Sunday sits on the right, and CSS grid's own
+   direction-aware column placement already does that with no .ltr override -
+   the one place in this app that rule does not apply. */
+
+.cal-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin: 14px 0 10px;
+}
+.cal-month { font-size: 14px; font-weight: 600; }
+
+.cal-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 4px;
+}
+.cal-dow {
+  text-align: center;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--ink-soft);
+  padding-bottom: 4px;
+}
+.cal-cell {
+  aspect-ratio: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  font-size: 12.5px;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-soft);
+}
+.cal-cell.pad { visibility: hidden; }
+.cal-cell.rest { opacity: .4; }
+.cal-cell.missed { background: color-mix(in srgb, var(--weak) 14%, transparent); color: var(--weak); }
+.cal-cell.future { border: 1px dashed var(--line); }
+.cal-cell.met { background: color-mix(in srgb, var(--great) 20%, transparent); color: var(--great); font-weight: 700; }
+.cal-cell.today { outline: 2px solid var(--accent); outline-offset: -2px; font-weight: 700; }
+
+/* -------------------------------------------------------- wpm chart */
+
+.wpm-chart {
+  display: flex;
+  align-items: flex-end;
+  gap: 14px;
+  height: 150px;
+  margin: 18px 0 10px;
+}
+.wpm-bar {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  align-items: center;
+  height: 100%;
+}
+.wpm-bar .bar {
+  width: 100%;
+  background: var(--accent);
+  border-radius: 8px 8px 0 0;
+  min-height: 6px;
+}
+.wpm-val { font-weight: 700; margin-top: 6px; }
+.wpm-lbl { font-size: 12px; color: var(--ink-soft); }
+
+/* ----------------------------------------------------------- inputs */
+
+.text-input {
+  width: 100%;
+  min-height: 48px;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--bg);
+  font-size: 16px; /* keeps Safari from zooming on focus */
+  margin-bottom: 10px;
+}
+.text-input.area { min-height: 90px; resize: vertical; }
+.text-input:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+.options { display: flex; flex-direction: column; gap: 10px; margin-top: 16px; }
+.option {
+  width: 100%;
+  min-height: 54px;
+  padding: 14px 16px;
+  text-align: start;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: transparent;
+  cursor: pointer;
+  font-size: 16px;
+}
+.option:active { background: var(--line); }
+
+.budget-row { margin: 18px 0; }
+.budget-row h3 { margin: 0 0 2px; }
+
+.summary { text-align: center; }
+.summary .big-stat { font-size: 42px; margin: 10px 0; }
+
+/* -------------------------------------------------------------- nav */
+
+.nav[hidden] { display: none; }
+
+.nav {
+  position: fixed;
+  left: 0; right: 0; bottom: 0;
+  display: flex;
+  background: var(--card);
+  border-top: 1px solid var(--line);
+  padding-bottom: env(safe-area-inset-bottom);
+  z-index: 10;
+}
+.nav a {
+  flex: 1;
+  text-align: center;
+  padding: 14px 4px 16px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink-soft);
+  text-decoration: none;
+}
+.nav a.on { color: var(--accent); }
+
+/* ------------------------------------------------------------ toast */
+
+.toast {
+  position: fixed;
+  left: 50%;
+  bottom: calc(84px + env(safe-area-inset-bottom));
+  transform: translate(-50%, 16px);
+  max-width: 90vw;
+  padding: 12px 18px;
+  border-radius: 12px;
+  background: var(--ink);
+  color: var(--bg);
+  font-size: 14.5px;
+  opacity: 0;
+  transition: opacity .25s ease, transform .25s ease;
+  z-index: 50;
+}
+.toast.in { opacity: 1; transform: translate(-50%, 0); }
+.toast.warn { background: var(--weak); color: #fff; }
+
+/* ------------------------------------------------------- direction
+
+   The interface mirrors for Hebrew, but everything he PRACTISES is English
+   and must stay left-to-right inside it: sentences, passages, answer options,
+   and the word-by-word feedback. */
+
+.ltr {
+  direction: ltr;
+  text-align: left;
+  unicode-bidi: isolate;
+}
+
+/* Numeric displays read the same in both directions. */
+.wpm-chart, .ladder, .clock { direction: ltr; }
+
+.label.spaced { margin-top: 18px; }
+
+/* Mirror the one glyph-like affordance that has a direction. */
+[dir="rtl"] .sess-row { text-transform: none; }
+
+/* ------------------------------------------------ sound coaching
+
+   The pronunciation hint is the highest-value text in a drill, so it gets a
+   panel of its own rather than a bullet the eye slides past. */
+
+.hints { list-style: none; padding-inline-start: 0; margin: 12px 0 4px; }
+
+.hint-item {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  padding: 12px 14px;
+  margin-bottom: 10px;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent) 22%, transparent);
+}
+
+.hint-label { font-size: 15px; letter-spacing: -.01em; }
+.hint-body { font-size: 14.5px; color: var(--ink); opacity: .85; }
+
+.btn.tiny {
+  min-height: 38px;
+  padding: 8px 14px;
+  font-size: 13.5px;
+  font-weight: 600;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  align-self: flex-start;
+}
+.pair { font-weight: 700; }
+
+/* --------------------------------------------------------- vocabulary
+
+   The Hebrew gloss is the prompt he recalls against, so it gets the same
+   visual weight .target gives an English sentence in the speech drills -
+   just without ltr(), since Hebrew content reads natively in this RTL page. */
+
+.vocab-gloss {
+  font-size: 22px;
+  font-weight: 600;
+  letter-spacing: -.01em;
+  margin: 4px 0 16px;
+}
+.vocab-answer { font-size: 22px; font-weight: 600; margin: 8px 0 4px; }
+.vocab-example { margin-top: 0; }
+
+.grade-row {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+  margin-top: 14px;
+}
+.grade-btn {
+  min-height: 52px;
+  padding: 10px 6px;
+  font-size: 13.5px;
+  border-width: 2px;
+  background: var(--card);
+}
+.grade-btn.weak  { border-color: color-mix(in srgb, var(--weak) 45%, var(--line)); color: var(--weak); }
+.grade-btn.ok    { border-color: color-mix(in srgb, var(--ok) 45%, var(--line)); color: var(--ok); }
+.grade-btn.good  { border-color: color-mix(in srgb, var(--good) 45%, var(--line)); color: var(--good); }
+.grade-btn.great { border-color: color-mix(in srgb, var(--great) 45%, var(--line)); color: var(--great); }
+.grade-btn.suggested { box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 50%, transparent) inset; }
+
+/* -------------------------------------------------------------- sales
+
+   Multiple choice reuses .options/.option as-is (already exactly a 2-3-item
+   response picker). The only genuinely new pieces are a speech-bubble
+   treatment for the customer's line and a muted, non-alarming tag for the
+   chosen option's quality - deliberately NOT the pronunciation verdict
+   colors (--weak is reserved for mispronunciation feedback; a suboptimal
+   sales pick is a technique call, not an error). */
+
+.sales-customer {
+  background: color-mix(in srgb, var(--ink) 5%, transparent);
+  border-radius: 12px;
+  padding: 14px 16px;
+  margin: 4px 0 16px;
+}
+.sales-customer .target { margin: 6px 0 0; }
+
+.choice-tag {
+  display: inline-block;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 3px 10px;
+  border-radius: 999px;
+  margin-bottom: 8px;
+}
+.choice-tag.best { background: color-mix(in srgb, var(--great) 18%, transparent); color: var(--great); }
+.choice-tag.ok   { background: color-mix(in srgb, var(--ok) 18%, transparent);    color: var(--ok); }
+.choice-tag.weak { background: color-mix(in srgb, var(--ink-soft) 18%, transparent); color: var(--ink-soft); }
