@@ -848,6 +848,39 @@ export const SALES_SCENARIOS = {
   ],
 };
 
+// Prompts for Pitch practice (drills/pitch.js): a one-minute sales pitch, said
+// without stopping. A1 is the floor, like the scenarios above.
+export const PITCH_PROMPTS = {
+  A1: [
+    "Introduce yourself and your company to a new customer. Say what you sell.",
+    "Tell a customer about one product, and say why it is useful for them.",
+    "Call a customer you met last week. Say who you are and why you are calling.",
+  ],
+  A2: [
+    "Pitch a product you know well to a customer who has only two minutes.",
+    "Explain how your service saves a small company time or money.",
+    "Introduce a new offer to an existing customer and suggest a next step.",
+  ],
+  B1: [
+    "Pitch a solution to a customer who says they are happy with their current supplier.",
+    "Present three reasons why a company should switch to your service, and end with a request.",
+    "Explain the value of your product to a manager who cares mostly about cost.",
+  ],
+  B2: [
+    "Deliver a one-minute executive pitch: the problem, your solution, the evidence, and the ask.",
+    "Pitch a pilot project to a cautious customer, addressing the risk before they raise it.",
+    "Present your company's key difference to a customer who is comparing three vendors.",
+  ],
+};
+
+/** One pitch prompt for `level`, steering away from recently shown ones. */
+export function pickPitch(level, excludeIds = []) {
+  const effLevel = PITCH_PROMPTS[level] ? level : 'A2';
+  let pool = fanOut(PITCH_PROMPTS, LEVELS, effLevel, 6);
+  if (!pool.length) pool = Object.values(PITCH_PROMPTS).flat();
+  return pickFresh(pool, excludeIds, 1)[0];
+}
+
 /**
  * Shuffle one turn's options for display, carrying quality/why along.
  * NOT content/placement-items.js's shuffleOptions() - that helper assumes

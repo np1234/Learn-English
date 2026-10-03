@@ -331,4 +331,39 @@ export function adherence(sessions, program, date = new Date()) {
   return { practised, scheduledSoFar, pct: scheduledSoFar ? Math.round((practised / scheduledSoFar) * 100) : 0 };
 }
 
+
+// -------------------------------------------------------------- checkpoints
+
+/**
+ * Program weeks at which the progress checkpoint (drills/checkpoint.js) comes
+ * due: the start, two evenly spaced points, and the final week - [1, 5, 9, 13]
+ * for a 13-week program. Pure and derived from the program length, so nothing
+ * about the schedule is stored.
+ */
+export function checkpointWeeks(weeks) {
+  const step = (weeks - 1) / 3;
+  const raw = [1, Math.round(1 + step), Math.round(1 + 2 * step), weeks];
+  return raw.filter((w, i) => i === 0 || w > raw[i - 1]);
+}
+
+/**
+ * The checkpoint that is due now, or null. Only the most recent unfinished
+ * slot is offered (a missed one is not nagged about once a later one is open).
+ * The first slot is skipped when the placement test already measured a scored
+ * read-aloud - that IS the week-1 baseline.
+ */
+export function dueCheckpoint(profile, date = new Date()) {
+  const frame = programFrame(profile, date);
+  const slots = checkpointWeeks(frame.totalWeeks);
+  const done = new Set((profile.checkpoints || []).map((c) => c.slot));
+  const baseline = !!profile.placement?.results?.detail?.readAloud?.scored;
+  let due = null;
+  slots.forEach((w, slot) => {
+    if (w > frame.week || done.has(slot)) return;
+    if (slot === 0 && baseline) return;
+    due = { slot, week: w };
+  });
+  return due;
+}
+
 export { ymd };

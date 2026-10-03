@@ -22,7 +22,7 @@ const KEY = 'englishApp.profile.v1';
 const SNAPSHOT_KEY = 'englishApp.profile.snapshot';
 const SNAPSHOT_PREV_KEY = 'englishApp.profile.snapshot.prev';
 const SNAPSHOT_AT_KEY = 'englishApp.profile.snapshotAt';
-const SCHEMA_VERSION = 8;
+const SCHEMA_VERSION = 9;
 
 /**
  * Today's date in the LEARNER'S timezone, as YYYY-MM-DD.
@@ -71,7 +71,9 @@ function defaults() {
     // recordShown() below. Not used by Repeat & Grade or Vocabulary: those
     // pools are large enough (70+ sentences, 224 FSRS-scheduled words) that
     // this problem doesn't apply to them.
-    recentContent: { shadow: [], fluency: [], sales: [], listening: [] },
+    recentContent: { shadow: [], fluency: [], sales: [], listening: [], pitch: [] },
+    // Progress checkpoints: [{ slot, week, at, accuracy|null, wpm|null }].
+    checkpoints: [],
     phonemes: {},
     sessions: [],
     reviews: [],
@@ -157,6 +159,11 @@ function migrate(stored) {
     // defaults with nothing to move, so deepMerge() backfills them - this
     // case exists to document that v8 IS a real shape change, same as the
     // v4-v7 no-op cases above.
+  }
+  if (v < 9) {
+    // v8 had no checkpoints and no recentContent.pitch - both new nested
+    // defaults with nothing to move, so deepMerge() backfills them; this case
+    // documents that v9 IS a real shape change, like the v4-v8 no-ops.
   }
   stored.version = SCHEMA_VERSION;
   return stored;
@@ -329,6 +336,18 @@ export function recordCapture(diag) {
   if (log.length > CAPTURE_LOG_CAP) p.captureLog = log.slice(-CAPTURE_LOG_CAP);
   save();
   return { graded, silentMiss, stats };
+}
+
+// ------------------------------------------------------------ checkpoints
+
+/** Save one progress checkpoint, replacing a retake of the same slot. */
+export function recordCheckpoint({ slot, week, accuracy, wpm }) {
+  const p = load();
+  const list = (p.checkpoints || []).filter((c) => c.slot !== slot);
+  list.push({ slot, week, at: Date.now(), accuracy: accuracy ?? null, wpm: wpm ?? null });
+  list.sort((a, b) => a.slot - b.slot);
+  p.checkpoints = list;
+  save();
 }
 
 // -------------------------------------------------------- recent content

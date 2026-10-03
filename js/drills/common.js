@@ -97,10 +97,11 @@ export function recordButton({ onResult, onError, wantTranscript = true, label }
 export function comparePanel(modelText, selfUrl) {
   const audio = selfUrl ? h('audio', { src: selfUrl, preload: 'metadata' }) : null;
 
-  const modelBtn = h('button', {
+  // No model text (e.g. a free-speaking pitch) means no model button.
+  const modelBtn = modelText ? h('button', {
     class: 'btn ghost', type: 'button',
     onClick: () => { speak(modelText).catch(() => {}); },
-  }, t('d.playModel'));
+  }, t('d.playModel')) : null;
 
   const selfBtn = selfUrl
     ? h('button', {
@@ -113,7 +114,7 @@ export function comparePanel(modelText, selfUrl) {
     modelBtn,
     selfBtn,
     audio,
-    selfUrl ? h('p', { class: 'hint small' }, t('d.compareHint')) : null,
+    selfUrl && modelText ? h('p', { class: 'hint small' }, t('d.compareHint')) : null,
   );
 }
 

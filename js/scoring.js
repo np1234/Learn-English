@@ -92,8 +92,12 @@ function spellNumbers(t) {
   t = t.replace(/\$\s?(\d+)(?:\.(\d{2}))?/g, (_, d, c) =>             // $49.99
     `${numberToWords(+d)} dollars${c && +c ? ` ${numberToWords(+c)} cents` : ''}`);
   t = t.replace(/(\d+)\s?%/g, (_, d) => `${numberToWords(+d)} percent`);
-  t = t.replace(/\b(\d{1,2}):(\d{2})\b/g, (_, h, m) =>                // 9:30
-    `${numberToWords(+h)}${+m ? ` ${+m < 10 ? `oh ${numberToWords(+m)}` : numberToWords(+m)}` : ''}`);
+  t = t.replace(/\b(\d{1,2}):(\d{2})\b/g, (_, h, m) =>                // 9:30, 9:00
+    `${numberToWords(+h)}${+m ? ` ${+m < 10 ? `oh ${numberToWords(+m)}` : numberToWords(+m)}` : " o'clock"}`);
+  // "May 21" is said "May twenty-first": a bare day number after a month is
+  // an ordinal, on both sides of the comparison.
+  t = t.replace(/\b(january|february|march|april|may|june|july|august|september|october|november|december)\s+(\d{1,2})\b(?!\s?(?:st|nd|rd|th)\b)/g,
+    (_, m, d) => `${m} ${ordinalWords(+d)}`);
   t = t.replace(/\b(\d+)(st|nd|rd|th)\b/g, (_, d) => ordinalWords(+d));
   t = t.replace(/\b(\d+)\.(\d+)\b/g, (_, a, b) =>
     `${numberToWords(+a)} point ${b.split('').map((x) => ONES[+x]).join(' ')}`);

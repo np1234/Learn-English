@@ -78,7 +78,7 @@ function installFakes(win, opts = {}) {
 function seedProfile(extra = {}) {
   const now = new Date().toISOString();
   return {
-    version: 8, name: 'Test', lang: 'en', onboarded: true, createdAt: now,
+    version: 9, name: 'Test', lang: 'en', onboarded: true, createdAt: now,
     caps: { tts: true, mic: true, asr: true, checkedAt: null, captureMode: 'auto', captureLearned: 'rec-first' },
     program: { startedAt: now, days: [0, 1, 2, 3, 4, 5, 6] },
     levels: { speech: 'A2', vocab: 'A2', sales: 'A1', listening: 'A2' },
@@ -122,13 +122,13 @@ async function mountApp(hash, { said = '', opts = {}, profile = seedProfile() } 
   const profileNow = () => JSON.parse(localStorage.getItem('englishApp.profile.v1'));
   // Polls instead of sleeping: the page is busy running other iframes, and a
   // fixed delay made this flaky.
-  const until = async (fn, ms = 5000) => { const t0 = Date.now(); while (Date.now() - t0 < ms) { if (fn()) return true; await wait(40); } return false; };
+  const until = async (fn, ms = 12000) => { const t0 = Date.now(); while (Date.now() - t0 < ms) { if (fn()) return true; await wait(40); } return false; };
   const speakOnce = async () => {
     click('button.record');
     await until(() => doc.querySelector('button.record.recording'));
     await wait(200);
     click('button.record');
-    await until(() => doc.querySelector('.feedback')?.children.length > 0);
+    await until(() => { const f = doc.querySelector('.feedback'); return !f || f.children.length > 0; });
   };
   return { fr, win: fr.contentWindow, doc, click, sessions, profileNow, speakOnce, text: () => doc.querySelector('#app').innerText, dispose: () => fr.remove() };
 }
@@ -272,6 +272,40 @@ try {
     }
   });
 
+  await test('checkpoint weeks: 13-week program is [1,5,9,13]', () => {
+    eq(pr.checkpointWeeks(13), [1, 5, 9, 13]);
+    const w26 = pr.checkpointWeeks(26); eq(w26[0], 1); eq(w26[w26.length - 1], 26); ok(w26.length === 4);
+    eq(pr.checkpointWeeks(1), [1]);
+  });
+  await test('checkpoint becomes due on schedule and clears once saved', () => {
+    const day = (n) => new Date(Date.now() - n * 864e5).toISOString();
+    const base = { programMonths: 3, program: { startedAt: day(30) }, placement: { results: { detail: { readAloud: { scored: true } } } }, checkpoints: [] };
+    eq(pr.dueCheckpoint(base, new Date())?.week, 5);
+    eq(pr.dueCheckpoint({ ...base, checkpoints: [{ slot: 1 }] }, new Date()), null);
+    // placement read-aloud unscored -> week 1 is offered from the start
+    eq(pr.dueCheckpoint({ ...base, program: { startedAt: day(0) }, placement: { results: { detail: { readAloud: { scored: false } } } } }, new Date())?.week, 1);
+    // scored baseline -> nothing on day one
+    eq(pr.dueCheckpoint({ ...base, program: { startedAt: day(0) } }, new Date()), null);
+  });
+
+  // ---------------------------------------------------------------- numbers
+  suite('numbers');
+  const NU = await imp('/js/content/numbers.js');
+  await test('listen items: 4 distinct options, answer present, spoken text non-empty', () => {
+    for (let i = 0; i < 400; i++) {
+      const it = NU.makeListenItem();
+      eq(it.options.length, 4, JSON.stringify(it)); eq(new Set(it.options).size, 4, JSON.stringify(it));
+      ok(it.options.includes(it.answer), JSON.stringify(it)); ok(it.spoken.length > 2);
+    }
+  });
+  await test('speak items: the shown digits score 100% against their spoken words', () => {
+    for (let i = 0; i < 300; i++) {
+      const it = NU.makeSpeakItem();
+      eq(sc.scoreAttempt(it.spoken, it.show, 3).accuracy, 1, `${it.show} -> ${it.spoken}`);
+      eq(sc.scoreAttempt(it.show, it.spoken, 3).accuracy, 1, `${it.spoken} -> ${it.show}`);
+    }
+  });
+
   // ---------------------------------------------------------------- capture
   suite('capture (speech.js with fake media)');
   const fresh = async (opts) => { const f = installFakes(window, opts); const m = await import(`/js/speech.js?cap=${Math.random()}`); return { ...f, m }; };
@@ -341,8 +375,8 @@ try {
     const target = a.doc.querySelector('.target').textContent;
     a.win.__said = target.split(' ').slice(0, 2).join(' ');
     await a.speakOnce();
-    const t = a.text(); const phon = a.profileNow().phonemes; a.dispose();
-    ok(/Only part of it was heard/.test(t), t.slice(0, 300)); eq(Object.keys(phon || {}), []);
+    const t = a.text(); const phon = a.profileNow().phonemes; const dbg = `target=${target} said=${a.win.__said} log=${a.win.__log.join(',')}`; a.dispose();
+    ok(/Only part of it was heard/.test(t), `${dbg} text=${t.slice(-300)}`); eq(Object.keys(phon || {}), []);
   });
   await test('Repeat: no transcript shows a reason, not the old blanket message', async () => {
     const a = await mountApp('#/drill/repeat', { said: '' });
@@ -382,6 +416,51 @@ try {
     const p = a.profileNow(); a.dispose();
     ok(Array.isArray(p.captureLog) && p.captureLog.length >= 1, 'no captureLog'); ok(p.captureStats.graded + p.captureStats.ungraded >= 1);
   });
+  await test('Numbers: leave before answering records nothing; a full pass records a session', async () => {
+    const a = await mountApp('#/drill/numbers');
+    a.click('button.link', /end session/i); await wait(300);
+    eq(a.sessions().length, 0);
+    a.dispose();
+    const b = await mountApp('#/drill/numbers');
+    b.click('button.option'); await wait(150);
+    b.click('button.link', /end session/i); await wait(300);
+    const s = b.sessions(); b.dispose();
+    eq(s.length, 1); eq(s[0].drill, 'numbers'); eq(s[0].detail.heard, 1);
+  });
+  await test('Pitch: record, review, save writes a session', async () => {
+    const a = await mountApp('#/drill/pitch', { said: 'hello my name is Elad and I help teams save time on invoices' });
+    await a.speakOnce();
+    ok(/seconds/.test(a.text()), a.text().slice(0, 200));
+    a.click('button', /^finish$/i); await wait(300);
+    const s = a.sessions(); a.dispose();
+    eq(s.length, 1); eq(s[0].drill, 'pitch'); ok(s[0].detail.words > 5);
+  });
+  await test('Checkpoint: saves a scored result and clears the due card', async () => {
+    const old = new Date(Date.now() - 30 * 864e5).toISOString();
+    const prof = seedProfile({ program: { startedAt: old, days: [0, 1, 2, 3, 4, 5, 6] }, placement: { done: true, results: { detail: { readAloud: { scored: true, accuracy: 0.6 } } } } });
+    const a = await mountApp('#/drill/checkpoint', { said: 'The three brothers thought the weather was worse than they expected.', profile: prof });
+    await a.speakOnce();
+    a.click('button', /save this checkpoint/i); await wait(300);
+    const p = a.profileNow(); a.dispose();
+    eq(p.checkpoints.length, 1); eq(p.checkpoints[0].accuracy, 1); eq(p.checkpoints[0].week, 5);
+  });
+  await test('Checkpoint: a partial catch cannot be saved', async () => {
+    const old = new Date(Date.now() - 30 * 864e5).toISOString();
+    const prof = seedProfile({ program: { startedAt: old, days: [0, 1, 2, 3, 4, 5, 6] }, placement: { done: true, results: { detail: { readAloud: { scored: true } } } } });
+    const a = await mountApp('#/drill/checkpoint', { said: 'The three brothers', profile: prof });
+    await a.speakOnce();
+    const hasSave = [...a.doc.querySelectorAll('button')].some((b) => /save this checkpoint/i.test(b.textContent));
+    const p = a.profileNow(); a.dispose();
+    ok(!hasSave, 'save offered for a partial catch'); eq((p.checkpoints || []).length, 0);
+  });
+  await test('Today shows the checkpoint card when due; Progress lists saved checkpoints', async () => {
+    const old = new Date(Date.now() - 30 * 864e5).toISOString();
+    const prof = seedProfile({ program: { startedAt: old, days: [0, 1, 2, 3, 4, 5, 6] }, placement: { done: true, results: { detail: { readAloud: { scored: true } } } }, checkpoints: [] });
+    const a = await mountApp('#/today', { profile: prof });
+    ok(/Checkpoint time - week 5/.test(a.text()), a.text().slice(0, 200));
+    a.win.location.hash = '#/progress'; await wait(400);
+    ok(/Checkpoints/.test(a.text()), 'progress card missing'); a.dispose();
+  });
   await test('Speech Lab and Today render', async () => {
     const a = await mountApp('#/diag'); const t1 = a.text();
     a.win.location.hash = '#/today'; await wait(400); const t2 = a.text(); a.dispose();
@@ -390,7 +469,7 @@ try {
 
   // ------------------------------------------------------------------ state
   suite('state / migration');
-  await test('v7 profile migrates to v8 without losing data', async () => {
+  await test('v7 profile migrates to v9 without losing data', async () => {
     const old = { version: 7, name: 'Elad', lang: 'he', onboarded: true, createdAt: '2026-08-31T10:00:00.000Z',
       levels: { speech: 'B1', vocab: 'A2', sales: 'A1', listening: 'A2' }, caps: { tts: true, mic: true, asr: false, checkedAt: 'x' },
       sessions: Array.from({ length: 87 }, (_, i) => ({ date: '2026-09-01', at: i, drill: 'repeat', track: 'speech', seconds: 480, accuracy: 0.8 })),
@@ -399,9 +478,10 @@ try {
     localStorage.setItem('englishApp.profile.v1', JSON.stringify(old));
     const st = await import(`/js/state.js?mig=${Math.random()}`);
     const p = st.get();
-    eq(p.version, 8); eq(p.sessions.length, 87); eq(p.levels.speech, 'B1'); eq(p.stats.streak, 23);
+    eq(p.version, 9); eq(p.sessions.length, 87); eq(p.levels.speech, 'B1'); eq(p.stats.streak, 23);
     eq(p.phonemes.w.attempts, 20); eq(p.reviews.length, 1); eq(p.caps.asr, false);
     eq(p.caps.captureMode, 'auto'); ok(Array.isArray(p.captureLog)); eq(p.budget.sales, 10);
+    ok(Array.isArray(p.checkpoints)); ok(Array.isArray(p.recentContent.pitch));
   });
   await test('snapshot is not overwritten by a second load the same day', async () => {
     localStorage.clear();

@@ -18,6 +18,9 @@ import * as fluencyDrill from './drills/fluency.js';
 import * as vocabDrill from './drills/vocab.js';
 import * as salesDrill from './drills/sales.js';
 import * as listeningDrill from './drills/listening.js';
+import * as numbersDrill from './drills/numbers.js';
+import * as pitchDrill from './drills/pitch.js';
+import * as checkpointDrill from './drills/checkpoint.js';
 import { micError } from './drills/common.js';
 
 const OWNER_EMAIL = 'netanel.portnoy@gmail.com';
@@ -475,6 +478,7 @@ function viewToday() {
   const streak = streaks.current;
   const scheduledToday = program.isScheduled(p.program.days, now);
   const missed = program.missedRun(p.sessions, p.program.days, now, p.program.startedAt);
+  const checkpointDue = program.dueCheckpoint(p, now);
 
   // Fires at most once a week (Safari can purge a site's storage after about
   // 7 days away), and only once real history exists -
@@ -569,6 +573,14 @@ function viewToday() {
         )
       : null,
 
+    checkpointDue
+      ? h('div', { class: 'card recovery' },
+          h('h3', {}, t('cp.dueTitle', { week: checkpointDue.week })),
+          h('p', { class: 'hint small' }, t('cp.dueHint')),
+          h('button', { class: 'btn primary wide', type: 'button', onClick: () => go('#/drill/checkpoint') }, t('cp.start')),
+        )
+      : null,
+
     missed >= 1
       ? h('div', { class: 'card recovery' },
           h('p', {}, t('today.missedDays', { n: missed })),
@@ -588,6 +600,8 @@ function viewToday() {
       h('h3', {}, t('today.spareTitle')),
       h('p', { class: 'hint small' }, t('today.spareBlurb')),
       h('button', { class: 'btn ghost wide', type: 'button', onClick: () => go('#/drill/quick') }, t('today.quick')),
+      h('button', { class: 'btn ghost wide', type: 'button', onClick: () => go('#/drill/numbers') }, t('today.numbers')),
+      h('button', { class: 'btn ghost wide', type: 'button', onClick: () => go('#/drill/pitch') }, t('today.pitch')),
     ),
 
     showBackupNudge
@@ -738,6 +752,23 @@ function viewProgress() {
         h('div', {}, h('p', { class: 'big-stat' }, Math.round((p.stats.totalSeconds || 0) / 60)), h('p', { class: 'hint small' }, t('pr.minutesTotal'))),
         h('div', {}, h('p', { class: 'big-stat' }, p.stats.drillsDone || 0), h('p', { class: 'hint small' }, t('pr.sessions'))),
       ),
+    ),
+
+    h('div', { class: 'card' },
+      h('h2', {}, t('cp.progressTitle')),
+      (() => {
+        const base = p.placement?.results?.detail?.readAloud;
+        const rows = [];
+        if (base?.scored && typeof base.accuracy === 'number') {
+          rows.push(h('div', { class: 'sess-row' }, h('span', {}, t('cp.baseline')), h('span', { class: 'hint small' }, `${Math.round(base.accuracy * 100)}%`)));
+        }
+        for (const c of p.checkpoints || []) {
+          rows.push(h('div', { class: 'sess-row' },
+            h('span', {}, t('cp.weekRow', { week: c.week })),
+            h('span', { class: 'hint small' }, c.accuracy === null ? t('cp.noScore') : `${Math.round(c.accuracy * 100)}%${c.wpm ? ` · ${c.wpm} wpm` : ''}`)));
+        }
+        return rows.length ? h('div', {}, ...rows) : h('p', { class: 'hint' }, t('cp.empty'));
+      })(),
     ),
 
     h('div', { class: 'card' },
@@ -1112,6 +1143,13 @@ function hostDrill(kind) {
   else if (kind === 'vocab') teardown = vocabDrill.mount(root, { onFinish: ctx.onFinish });
   else if (kind === 'sales') teardown = salesDrill.mount(root, { level: p.levels.sales, onFinish: ctx.onFinish });
   else if (kind === 'listening') teardown = listeningDrill.mount(root, { onFinish: ctx.onFinish });
+  else if (kind === 'numbers') teardown = numbersDrill.mount(root, { onFinish: ctx.onFinish });
+  else if (kind === 'pitch') teardown = pitchDrill.mount(root, { level: p.levels.sales, onFinish: ctx.onFinish });
+  else if (kind === 'checkpoint') {
+    const due = program.dueCheckpoint(p, new Date());
+    if (!due) return go('#/today');
+    teardown = checkpointDrill.mount(root, { slot: due.slot, week: due.week, onFinish: ctx.onFinish });
+  }
   else teardown = repeatDrill.mount(root, ctx);
 }
 
