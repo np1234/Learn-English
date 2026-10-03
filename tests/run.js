@@ -97,7 +97,9 @@ async function mountApp(hash, { said = '', opts = {}, profile = seedProfile() } 
     class FakeSR { constructor(){ this.running=false; }
       start(){ window.__log.push('sr.start'); this.running=true; setTimeout(()=>{ if(!this.running) return;
         if (window.__opts.srError) { this.onerror&&this.onerror({error:window.__opts.srError}); this.running=false; this.onend&&this.onend(); return; }
-        if (window.__said) { const alt=[{transcript:window.__said,confidence:.9}]; alt.isFinal=true; this.onresult&&this.onresult({resultIndex:0,results:[alt]}); }
+        // Speak once per attempt (speakOnce re-arms it): a real recogniser hears silence after the
+        // utterance, so a restarted session must NOT replay the same words.
+        if (window.__said && !window.__spent) { window.__spent = true; const alt=[{transcript:window.__said,confidence:.9}]; alt.isFinal=true; this.onresult&&this.onresult({resultIndex:0,results:[alt]}); }
         this.running=false; this.onend&&this.onend(); }, 60); }
       stop(){ window.__log.push('sr.stop'); if(this.running){ this.running=false; setTimeout(()=>this.onend&&this.onend(),10);} } }
     window.SpeechRecognition = FakeSR; window.webkitSpeechRecognition = FakeSR;
@@ -124,6 +126,7 @@ async function mountApp(hash, { said = '', opts = {}, profile = seedProfile() } 
   // fixed delay made this flaky.
   const until = async (fn, ms = 12000) => { const t0 = Date.now(); while (Date.now() - t0 < ms) { if (fn()) return true; await wait(40); } return false; };
   const speakOnce = async () => {
+    fr.contentWindow.__spent = false;
     click('button.record');
     await until(() => doc.querySelector('button.record.recording'));
     await wait(200);
@@ -286,6 +289,38 @@ try {
     eq(pr.dueCheckpoint({ ...base, program: { startedAt: day(0) }, placement: { results: { detail: { readAloud: { scored: false } } } } }, new Date())?.week, 1);
     // scored baseline -> nothing on day one
     eq(pr.dueCheckpoint({ ...base, program: { startedAt: day(0) } }, new Date()), null);
+  });
+
+  // ----------------------------------------------------------------- deploy
+  suite('deploy');
+  const sha8 = async (text) => {
+    const bytes = new TextEncoder().encode(text.replace(/\r\n/g, '\n'));
+    const d = await crypto.subtle.digest('SHA-1', bytes);
+    return [...new Uint8Array(d)].map((b) => b.toString(16).padStart(2, '0')).join('').slice(0, 8);
+  };
+  await test('index.html import map matches every module (run tools/stamp.py if this fails)', async () => {
+    const html = await (await fetch(`/index.html?nc=${V}`, { cache: 'no-store' })).text();
+    const m = html.match(/<script type="importmap">([\s\S]*?)<\/script>/);
+    ok(m, 'no import map in index.html');
+    const map = JSON.parse(m[1]).imports;
+    const stale = [];
+    for (const [key, val] of Object.entries(map)) {
+      const text = await (await fetch(`${key.slice(1)}?nc=${V}`, { cache: 'no-store' })).text();
+      if (!val.endsWith(`?v=${await sha8(text)}`)) stale.push(key);
+    }
+    eq(stale, []);
+    ok(Object.keys(map).length >= 25, `only ${Object.keys(map).length} modules mapped`);
+    const css = await (await fetch(`/css/styles.css?nc=${V}`, { cache: 'no-store' })).text();
+    ok(html.includes(`styles.css?v=${await sha8(css)}`), 'css stamp is stale');
+  });
+  await test('every js module on disk is in the import map', async () => {
+    const html = await (await fetch(`/index.html?nc=${V}`, { cache: 'no-store' })).text();
+    const map = JSON.parse(html.match(/<script type="importmap">([\s\S]*?)<\/script>/)[1]).imports;
+    const files = ['app', 'speech', 'scoring', 'phonetics', 'placement', 'program', 'state', 'ui', 'vocab', 'srs', 'i18n',
+      'drills/common', 'drills/repeat', 'drills/shadow', 'drills/fluency', 'drills/vocab', 'drills/sales', 'drills/listening',
+      'drills/numbers', 'drills/pitch', 'drills/checkpoint', 'content/sentences', 'content/vocab', 'content/sales',
+      'content/listening', 'content/pick', 'content/placement-items', 'content/minimal-pairs', 'content/numbers'];
+    eq(files.filter((f) => !map[`./js/${f}.js`]), []);
   });
 
   // ---------------------------------------------------------------- numbers

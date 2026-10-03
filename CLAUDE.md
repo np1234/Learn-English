@@ -26,9 +26,19 @@ py -3 -m http.server 8123
 
 ### Testing
 
-There is no test runner, no lint config, and no CI. Verification is done by loading the app in
-a browser and executing modules in the page context — cache-bust the import when a file has
-changed on disk:
+**`http://localhost:<port>/tests/index.html`** runs ~57 in-browser tests (no dependencies; refuses
+to run off localhost because it writes localStorage, which it snapshots and restores). Suites:
+scoring, content integrity (tag bank, one-best sales turns, best-not-longest, volume), i18n parity,
+program/DST, capture engine with fake media, **drills run in a hidden iframe with a fake
+`getUserMedia`/`MediaRecorder`/`SpeechRecognition`** (scored, cut-off, no-words, blocked, zero-
+attempt End session, retry counting, numbers/pitch/checkpoint), state migration, and the deploy
+stamp. Read the result with `get_page_text` or `document.getElementById('summary')`. The drill
+iframe imports plain module URLs, so on a port that has seen older code the browser can serve
+stale modules - use one of the `english-app-fresh*` launch configs (each a new port) when results
+look impossible. The app itself is immune once stamped (see "Deploy stamp").
+
+There is no lint config and no CI. Ad-hoc checks: load the app in a browser and execute modules in
+the page context — cache-bust the import when a file has changed on disk:
 
 ```js
 const sc = await import('/js/scoring.js?v=2');
@@ -88,9 +98,29 @@ apology copy. The Sound Check probes the real device and stores the outcome in `
   separate utterances, each ending in a comma so the engine inserts a real pause. Default
   `rate 0.5` + 2-word chunks = **2.73×**. Shadow overrides to 5–8 word chunks because rhythm is
   the point there. One word per chunk is too slow to sit through.
-- **`Capture({keepAlive: true})` for anything longer than one sentence.** `continuous=false` stops
-  recognition at the first pause; without keepAlive the Fluency Sprint measured ~7 wpm instead of
-  ~105 on a two-minute round. keepAlive restarts recognition and accumulates the transcript.
+- **How recording and recognition are combined is a per-device fact** (`speech.js` "capture
+  strategy"): `both-rec-first`, `both-asr-first` (recognition starts synchronously inside the tap,
+  before `getUserMedia`), `asr-only`, `record-only`. `auto` (default) uses one of the two "both"
+  orders and `app.js`'s `learnFromCapture()` flips it after two silent misses in a row (a real
+  recording, recognition supported, no error, no words). `#/diag` (Speech Lab, linked from More)
+  lets the learner or Netanel test each strategy on the phone, pin one into `caps.captureMode`,
+  and copy a report (device, caps, `captureLog` of the last 20 attempts with event timelines).
+  **iOS behaviour cannot be verified in the browser pane (mic blocked) - the Speech Lab is the
+  way to measure it, never assert it.**
+- **Recognition restarts until the Capture is stopped, for every drill** (`keepAlive` is kept only
+  for API compatibility). `continuous=false` ends at the first pause, which used to truncate a
+  hesitant reading or any Shadow passage and grade the unheard tail as "missing". It never
+  restarts after a fatal error (`not-allowed`, `service-not-allowed`, `audio-capture`, `network`,
+  ...) - that used to loop ~8 restarts/second. Interim text is kept as a fallback when no final
+  result arrives (interim is only requested off iOS; a non-final result iOS sends anyway is kept
+  the same way).
+- **`stop()` ends recognition FIRST, then the recorder, then releases the tracks.** Ending the
+  recorder/audio session before the recogniser delivers its final result can drop the only
+  transcript on iOS. `start()` releases the mic if anything throws (a failed `MediaRecorder.start`
+  used to leave the track live and the indicator on).
+- `capture.stop()` returns `asr: {status, error}` (`ok | no-speech | blocked | network |
+  audio-capture | unsupported | disabled | error`) and `diag`; drills show `unscoredNote(asr)` -
+  a reason he can act on - instead of the old blanket "scoring is not available on this device".
 - Recording URLs are object URLs — call `revokeUrl()` when replacing or tearing one down.
 - **Everything audio must start inside a user gesture** (iOS drops un-gestured `speak()` and
   `getUserMedia()`). `speak()`/`speakSlow()` run synchronously once `primeVoices()` has resolved
@@ -140,7 +170,9 @@ edits:
   recoverable.
 
 **When changing the shape: bump `SCHEMA_VERSION` and add a case to `migrate()`.** Never rename
-or remove a stored field without a migration step. `SCHEMA_VERSION` is 7 as of the v6→v7
+or remove a stored field without a migration step. `SCHEMA_VERSION` is 9 (v8 added `caps.captureMode/captureLearned/asrReason`, `captureLog`,
+`captureStats`; v9 added `checkpoints` and `recentContent.pitch` - all no-op migrations, nested
+defaults) and was 7 as of the v6→v7
 migration that added `profile.recentContent` (see "Thin content pools repeat less" below) — a
 plain new nested default with nothing to move. Like the v4, v5 and v6 cases before it, this one is
 deliberately a no-op — kept only to document that v7 is a real shape change and satisfy the
@@ -307,9 +339,12 @@ returning `null` for them is the honest behaviour, not a gap to fill.
 
 ### Thin content pools repeat less (`js/content/pick.js`)
 
-Repeat & Grade draws from ~14 sentences/level and Vocabulary from a 224-word FSRS deck — both
-plenty wide. Shadow Mode, Fluency Sprint, Sales Mode and Listening are not: `SHADOW_PASSAGES` has
-only **2 passages per level**, `FLUENCY_PROMPTS` 3, `SALES_SCENARIOS` 2 (across just 4 levels).
+Repeat & Grade now draws from ~40 sentences/level (older 14 hand-tagged, the rest authored as plain
+text with tags DERIVED from `phonetics.wordTags()`) and Vocabulary from a 330-word FSRS deck. When
+this module was written the thin banks were `SHADOW_PASSAGES` at **2 passages per level**,
+`FLUENCY_PROMPTS` 3, `SALES_SCENARIOS` 2 (across just 4 levels); they are now 8, 8 and 21
+scenarios total, but the mechanism still matters (a level's pool is still far smaller than ~65
+practice days of draws).
 Before this module existed, each picker drew from its own exact level with plain
 `Math.random()` and no memory between sessions — for Shadow specifically, `mount()`'s default
 `count: 2` requests exactly as many passages as the level's *entire* pool, so the whole bank was
@@ -469,6 +504,49 @@ Two content decisions worth knowing before touching it:
 **Budget-gated in `planFor()`, not phase-gated** — same reasoning as Sales Mode: comprehension is
 a different skill axis than phonetic production, so there's no "automating a wrong sound" risk to
 withhold it against, and it runs on `budget.listening` from day one.
+
+### Scoring honesty (`js/scoring.js`) — added after the iPhone grading regression
+
+- Normalisation is applied to BOTH target and transcript: full contraction table (we'd, you'd,
+  it'll ...), numbers → words (`numberToWords`: cardinals, `$49`, `15%`, `9:30`, `9:00` →
+  "nine o'clock", ordinals, years, bare day after a month → ordinal), ok/okay, hyphen compounds
+  split, possessive apostrophes dropped. Lookups are `Map`s (a plain object returns functions for
+  words like "constructor"). Every case came from a measured false negative.
+- `scoreAttempt()` returns `unreliable` (+ `reason: cutoff | partial`) when the recogniser plainly
+  only caught part of an attempt (trailing run of missing ≥40%, or <50% of words heard). Drills
+  show it as "only part of it was heard", do NOT record it into `recordTagScores` /
+  `recordAccuracy` / placement (use `countsTowardStats(scored)`), and never offer to save it as a
+  checkpoint. A genuine mispronunciation is not unreliable.
+- Shared feedback is `attemptFeedback(scored, result)` in `drills/common.js` - spread its returned
+  array into `append()` (append stringifies arrays/null).
+
+### Zero-attempt sessions never count
+
+Repeat/Shadow/Fluency/Numbers/Sales/Vocab/Listening record a session only if at least one attempt
+exists; ending early is a plain exit. (They used to record a 4-second session, extend the streak
+and tick the drill "Done".) Sales keys its results by turn so "Try again" replaces, not adds.
+
+### Numbers, Pitch and Checkpoints (Section 6 additions)
+
+- **Numbers** (`drills/numbers.js`, generated by `content/numbers.js`): 6 hear-it-pick-it items
+  with teen/ty and digit-swap distractors + 3 read-aloud items graded against `spoken` words.
+  Reachable from Today's spare-moment card (not budget-gated); records `drill:'numbers'`.
+- **Pitch** (`drills/pitch.js`, prompts in `content/sales.js` `PITCH_PROMPTS`): free 60-90 s
+  recording; pace only if words were recognised, filler count is a floor (recognisers delete
+  um/uh), 3-item self-check. Uses `comparePanel('', url)` (empty model text = no model button).
+- **Checkpoints** (`drills/checkpoint.js`, `program.js` `checkpointWeeks`/`dueCheckpoint`): the
+  placement read-aloud sentence repeated at weeks [1, ~⅓, ~⅔, last] (week 1 skipped when
+  placement already scored it). Due card on Today, history on Progress, stored in
+  `profile.checkpoints`. Audio is not persisted (localStorage cannot hold it) - only scores.
+
+### Deploy stamp (`tools/stamp.py`)
+
+Plain ES modules are cached per URL and Pages serves with a short max-age, so right after a push a
+phone could hold a NEW `app.js` beside an OLD `speech.js` and white-screen on a missing export.
+`py -3 tools/stamp.py` writes an import map into `index.html` (between `stamp:` markers) mapping
+every `./js/*.js` to itself `?v=<sha1 of LF-normalised bytes>`, plus versioned css and entry URLs.
+**Run it before every commit that touches `js/` or `css/`**; the `deploy` tests fail if it is
+stale. iOS < 16.4 ignores import maps and behaves as before.
 
 ## Conventions
 

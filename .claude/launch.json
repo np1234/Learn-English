@@ -66,6 +66,61 @@
         "8444"
       ],
       "port": 8444
+    },
+    {
+      "name": "english-app-fresh5",
+      "runtimeExecutable": "py",
+      "runtimeArgs": [
+        "-3",
+        "-m",
+        "http.server",
+        "8445"
+      ],
+      "port": 8445
+    },
+    {
+      "name": "english-app-fresh6",
+      "runtimeExecutable": "py",
+      "runtimeArgs": [
+        "-3",
+        "-m",
+        "http.server",
+        "8446"
+      ],
+      "port": 8446
+    },
+    {
+      "name": "english-app-fresh7",
+      "runtimeExecutable": "py",
+      "runtimeArgs": [
+        "-3",
+        "-m",
+        "http.server",
+        "8447"
+      ],
+      "port": 8447
+    },
+    {
+      "name": "english-app-fresh8",
+      "runtimeExecutable": "py",
+      "runtimeArgs": [
+        "-3",
+        "-m",
+        "http.server",
+        "8448"
+      ],
+      "port": 8448
+    },
+    {
+      "name": "english-app-fresh9",
+      "runtimeExecutable": "py",
+      "runtimeArgs": [
+        "-3",
+        "-m",
+        "http.server",
+        "8449"
+      ],
+      "port": 8449
     }
   ]
 }

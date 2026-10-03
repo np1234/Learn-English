@@ -48,6 +48,14 @@ Built for one learner (Hebrew first language, iPhone, heading into sales).
   microphone required. The transcript stays hidden until after the questions, so it actually
   tests understanding rather than reading. See "Listening tests understanding on its own" below.
 
+- **Numbers practice** - hear a number, price, time or date and pick it (13 vs 30, 15 vs 50,
+  swapped digits), then read a few aloud. The sales-critical sound Hebrew speakers lose deals on.
+- **Pitch practice** - a 60-90 second recorded pitch with pace, filler words and a short self-check.
+- **Progress checkpoints** - the same read-aloud sentence at the quarter marks of the program, so
+  accuracy and pace can be compared across months.
+- **Speech Lab** (More ▸ Speech Lab) - tests how *this* phone combines recording and speech
+  recognition, lets you pin the method that works, and copies a diagnostics report.
+
 Every section listed above is real - nothing left as a placeholder.
 
 ---
@@ -70,6 +78,12 @@ never denied.
 
 (`python` on this machine is the Microsoft Store stub and always fails — `py -3`
 is the real interpreter.)
+
+**Tests:** open `http://localhost:8123/tests/` - about 57 in-browser checks, including every drill
+run against a fake microphone and speech recogniser. Localhost only.
+
+**Before every commit that touches `js/` or `css/`:** `py -3 tools/stamp.py`. It versions each
+module by content hash in `index.html` so a deploy can never serve a half-old, half-new app.
 
 ## Put it online (GitHub Pages)
 
