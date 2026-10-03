@@ -120,7 +120,16 @@ async function mountApp(hash, { said = '', opts = {}, profile = seedProfile() } 
   };
   const sessions = () => JSON.parse(localStorage.getItem('englishApp.profile.v1')).sessions || [];
   const profileNow = () => JSON.parse(localStorage.getItem('englishApp.profile.v1'));
-  const speakOnce = async () => { click('button.record'); await wait(250); click('button.record'); await wait(900); };
+  // Polls instead of sleeping: the page is busy running other iframes, and a
+  // fixed delay made this flaky.
+  const until = async (fn, ms = 5000) => { const t0 = Date.now(); while (Date.now() - t0 < ms) { if (fn()) return true; await wait(40); } return false; };
+  const speakOnce = async () => {
+    click('button.record');
+    await until(() => doc.querySelector('button.record.recording'));
+    await wait(200);
+    click('button.record');
+    await until(() => doc.querySelector('.feedback')?.children.length > 0);
+  };
   return { fr, win: fr.contentWindow, doc, click, sessions, profileNow, speakOnce, text: () => doc.querySelector('#app').innerText, dispose: () => fr.remove() };
 }
 
@@ -198,6 +207,13 @@ try {
       if (l.quality === 'best') longest++;
     }
     ok(longest / total <= 0.5, `best is longest in ${longest}/${total}`);
+  });
+  await test('content volume meets the 3-month target', () => {
+    const per = (o) => Object.fromEntries(Object.entries(o).map(([k, v]) => [k, v.length]));
+    for (const [lvl, n] of Object.entries(per(S.SENTENCES))) ok(n >= 38, `sentences ${lvl}: ${n}`);
+    for (const [lvl, n] of Object.entries(per(S.SHADOW_PASSAGES))) ok(n >= 8, `shadow ${lvl}: ${n}`);
+    for (const [lvl, n] of Object.entries(per(S.FLUENCY_PROMPTS))) ok(n >= 8, `fluency ${lvl}: ${n}`);
+    ok(scenarios.length >= 20, `sales scenarios: ${scenarios.length}`);
   });
   await test('sales: every option text tokenizes to words only', () => {
     for (const s of scenarios) for (const t of s.turns) for (const o of t.options) {

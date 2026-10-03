@@ -48,6 +48,30 @@ export const LISTENING_PASSAGES = {
         { prompt: 'Which day is the shop closed?', options: ['Sunday', 'Saturday', 'Friday', 'Monday'], answer: 0 },
       ],
     },
+    {
+      id: "l-p4",
+      text: "My phone number is zero five two, three four five, six seven eight nine. Please call me after six o'clock.",
+      questions: [
+        { prompt: "When should you call?", options: ["After six o'clock", "Before six o'clock", "At nine o'clock", "On Sunday"], answer: 0 },
+        { prompt: "What does the speaker give you?", options: ["A phone number", "An address", "An email", "A name"], answer: 0 },
+      ],
+    },
+    {
+      id: "l-p5",
+      text: "The coffee costs three dollars. The cake costs five dollars. Together, that is eight dollars.",
+      questions: [
+        { prompt: "How much is the cake?", options: ["Five dollars", "Three dollars", "Eight dollars", "Two dollars"], answer: 0 },
+        { prompt: "How much are the coffee and the cake together?", options: ["Eight dollars", "Five dollars", "Three dollars", "Ten dollars"], answer: 0 },
+      ],
+    },
+    {
+      id: "l-p6",
+      text: "Anna works from Monday to Friday. On Saturday she rests, and on Sunday she visits her family.",
+      questions: [
+        { prompt: "When does Anna visit her family?", options: ["On Sunday", "On Saturday", "On Friday", "On Monday"], answer: 0 },
+        { prompt: "When does Anna rest?", options: ["On Saturday", "On Sunday", "On Monday", "On Friday"], answer: 0 },
+      ],
+    },
   ],
   A1: [
     {
@@ -72,6 +96,30 @@ export const LISTENING_PASSAGES = {
       questions: [
         { prompt: 'Why is Ben taking the bus this week?', options: ['His car broke down', 'He sold his car', 'He likes the bus', 'His license expired'], answer: 0 },
         { prompt: 'What is one disadvantage of the bus, according to the passage?', options: ['It takes longer', 'It is more expensive', 'It does not run on time', 'It is uncomfortable'], answer: 0 },
+      ],
+    },
+    {
+      id: "l-a4",
+      text: "The meeting is on the fifteenth of March at half past two. Please bring your laptop, and arrive ten minutes early.",
+      questions: [
+        { prompt: "What is the date of the meeting?", options: ["March fifteenth", "March fiftieth", "May fifteenth", "March fourteenth"], answer: 0 },
+        { prompt: "When should you arrive?", options: ["Ten minutes early", "At half past two", "Ten minutes late", "At two o'clock"], answer: 0 },
+      ],
+    },
+    {
+      id: "l-a5",
+      text: "Our new plan costs thirteen dollars a month. The old plan cost thirty dollars, so you save a lot.",
+      questions: [
+        { prompt: "What does the new plan cost?", options: ["Thirteen dollars a month", "Thirty dollars a month", "Fifty dollars a month", "Three dollars a month"], answer: 0 },
+        { prompt: "Why is the new plan better?", options: ["It is cheaper", "It is longer", "It is older", "It is bigger"], answer: 0 },
+      ],
+    },
+    {
+      id: "l-a6",
+      text: "I called the customer twice today. The first time nobody answered. The second time she said she was in a meeting, so I will try again tomorrow.",
+      questions: [
+        { prompt: "How many times did the speaker call?", options: ["Two times", "Three times", "One time", "Four times"], answer: 0 },
+        { prompt: "When will the speaker call again?", options: ["Tomorrow", "Today", "Next week", "Tonight"], answer: 0 },
       ],
     },
   ],
@@ -100,6 +148,30 @@ export const LISTENING_PASSAGES = {
         { prompt: 'What is a disadvantage of the new store?', options: ['A smaller selection', 'Higher prices', 'It is far away', 'Poor customer service'], answer: 0 },
       ],
     },
+    {
+      id: "l-b4",
+      text: "Our sales grew from fifteen thousand to fifty thousand dollars in one year. Most of the growth came from customers who recommended us to their friends.",
+      questions: [
+        { prompt: "How much were sales at the end of the year?", options: ["Fifty thousand dollars", "Fifteen thousand dollars", "Five thousand dollars", "Fifty million dollars"], answer: 0 },
+        { prompt: "Where did most of the growth come from?", options: ["Customer recommendations", "Advertising", "Lower prices", "New products"], answer: 0 },
+      ],
+    },
+    {
+      id: "l-b5",
+      text: "Thank you for calling BrightDesk. Our office is open from eight thirty to five, Sunday to Thursday. If you call after hours, please leave a message and we will call you back the next working day.",
+      questions: [
+        { prompt: "When is the office closed?", options: ["Friday and Saturday", "Sunday and Monday", "Thursday and Friday", "Only on Saturday"], answer: 0 },
+        { prompt: "What happens if you call after hours?", options: ["They call you back the next working day", "They answer immediately", "The call is cancelled", "You must call again"], answer: 0 },
+      ],
+    },
+    {
+      id: "l-b6",
+      text: "The customer wanted to cancel because the delivery was late. I apologized, offered a ten percent discount on the next order, and he agreed to stay.",
+      questions: [
+        { prompt: "Why did the customer want to cancel?", options: ["The delivery was late", "The price was high", "The product was broken", "Nobody called him"], answer: 0 },
+        { prompt: "What did the speaker offer?", options: ["A ten percent discount", "A free product", "A full refund", "A new contract"], answer: 0 },
+      ],
+    },
   ],
   B1: [
     {
@@ -126,6 +198,30 @@ export const LISTENING_PASSAGES = {
         { prompt: 'How are people reacting to the change?', options: ['Still getting used to it', 'Completely against it', 'They have not noticed', 'They asked for it'], answer: 0 },
       ],
     },
+    {
+      id: "l-c4",
+      text: "Our quarterly results are in. Revenue is up eight percent, but profit is down two percent because of higher shipping costs. The team believes this is temporary.",
+      questions: [
+        { prompt: "What happened to profit?", options: ["It went down two percent", "It went up eight percent", "It stayed the same", "It went up two percent"], answer: 0 },
+        { prompt: "Why did profit fall?", options: ["Shipping costs were higher", "Fewer customers bought", "Prices were lowered", "Staff left"], answer: 0 },
+      ],
+    },
+    {
+      id: "l-c5",
+      text: "I would suggest we move the presentation from Tuesday the third to Thursday the fifth. That gives the design team two more days to finish the slides, and the client has already confirmed that Thursday works.",
+      questions: [
+        { prompt: "When is the new presentation date?", options: ["Thursday the fifth", "Tuesday the third", "Tuesday the fifth", "Thursday the third"], answer: 0 },
+        { prompt: "Why move the presentation?", options: ["The design team needs more time", "The client is unavailable", "The room is booked", "The slides are finished"], answer: 0 },
+      ],
+    },
+    {
+      id: "l-c6",
+      text: "Honestly, I did not expect the customer to accept so quickly. I thought he would ask for a lower price, but he only wanted a longer payment period, which costs us nothing.",
+      questions: [
+        { prompt: "What did the customer ask for?", options: ["A longer payment period", "A lower price", "A free trial", "A faster delivery"], answer: 0 },
+        { prompt: "How did the speaker feel?", options: ["Surprised", "Angry", "Worried", "Bored"], answer: 0 },
+      ],
+    },
   ],
   B2: [
     {
@@ -150,6 +246,30 @@ export const LISTENING_PASSAGES = {
       questions: [
         { prompt: 'What is the speaker questioning?', options: ['How dependent the business is on its biggest client', 'Whether to hire a new client', 'The company\'s marketing strategy', 'Whether to raise prices'], answer: 0 },
         { prompt: 'What does "play devil\'s advocate" suggest about the speaker\'s intent?', options: ['Deliberately raising a difficult, uncomfortable question', 'Agreeing with everyone in the room', 'Changing the subject', 'Ending the meeting early'], answer: 0 },
+      ],
+    },
+    {
+      id: "l-d4",
+      text: "The proposal is attractive on paper, but I am concerned about the dependency it creates. If we integrate so deeply with a single vendor, switching later could cost us roughly three hundred thousand dollars and nearly a year of work.",
+      questions: [
+        { prompt: "What is the speaker's main concern?", options: ["Dependence on a single vendor", "The price of the proposal", "The quality of the software", "The length of the contract"], answer: 0 },
+        { prompt: "How much could switching later cost?", options: ["About three hundred thousand dollars", "About thirty thousand dollars", "About three million dollars", "Nothing at all"], answer: 0 },
+      ],
+    },
+    {
+      id: "l-d5",
+      text: "In the first half of the year we signed forty-two new accounts, which is nineteen percent more than planned. However, fourteen of them are still waiting for onboarding, and unless we hire more staff, some may leave before they ever use the product.",
+      questions: [
+        { prompt: "How many new accounts were signed?", options: ["Forty-two", "Fourteen", "Nineteen", "Fifty-two"], answer: 0 },
+        { prompt: "What risk does the speaker mention?", options: ["Customers may leave before using the product", "Revenue may fall suddenly", "The product may be too expensive", "Competitors may copy the product"], answer: 0 },
+      ],
+    },
+    {
+      id: "l-d6",
+      text: "When a negotiation stalls, I find it useful to stop discussing positions and start discussing interests. Instead of asking why the other side wants a discount, I ask what the discount would allow them to achieve.",
+      questions: [
+        { prompt: "What does the speaker suggest when a negotiation stalls?", options: ["Discuss interests instead of positions", "Offer a bigger discount", "Take a long break", "Ask for a new contact"], answer: 0 },
+        { prompt: "What does the speaker ask about a discount?", options: ["What it would allow them to achieve", "How large it should be", "When it should start", "Who will approve it"], answer: 0 },
       ],
     },
   ],
