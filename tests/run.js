@@ -1,0 +1,411 @@
+// In-browser test runner. No dependencies, no build.
+//
+// Refuses to run anywhere but localhost: the drill and state suites write to
+// localStorage, and the same origin (e.g. the deployed GitHub Pages site) holds
+// a real learner's progress. Storage is also snapshotted and restored around
+// every run.
+
+const out = document.getElementById('out');
+const summary = document.getElementById('summary');
+let pass = 0, fail = 0, skip = 0;
+const V = Date.now(); // fresh module instances every run
+
+function suite(name) {
+  const d = document.createElement('div');
+  d.className = 'suite'; d.textContent = name; out.append(d);
+}
+function line(cls, text, detail) {
+  const d = document.createElement('div');
+  d.className = `row ${cls}`; d.textContent = `${cls === 'pass' ? 'PASS' : cls === 'fail' ? 'FAIL' : 'SKIP'}  ${text}`;
+  out.append(d);
+  if (detail) { const x = document.createElement('div'); x.className = 'detail'; x.textContent = detail; out.append(x); }
+}
+async function test(name, fn) {
+  try {
+    const r = await fn();
+    if (r === 'skip') { skip++; line('skip', name); } else { pass++; line('pass', name); }
+  } catch (e) {
+    fail++; line('fail', name, String(e?.message || e));
+  }
+}
+function eq(a, b, msg = '') {
+  if (JSON.stringify(a) !== JSON.stringify(b)) throw new Error(`${msg} expected ${JSON.stringify(b)}, got ${JSON.stringify(a)}`);
+}
+function ok(c, msg = 'assertion failed') { if (!c) throw new Error(msg); }
+const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+const imp = (p) => import(`${p}?v=${V}`);
+
+// ------------------------------------------------------------ fake media
+
+/** Install fakes on `win` BEFORE a fresh speech.js is imported there. */
+function installFakes(win, opts = {}) {
+  const log = [];
+  const sessions = opts.sessions || [[{ final: 'hello there' }]]; // per SR.start() call: list of results
+  let startCount = 0;
+  class FakeSR {
+    constructor() { this.onresult = null; this.onerror = null; this.onend = null; this.running = false; }
+    start() {
+      log.push('sr.start'); startCount++; this.running = true;
+      const n = startCount;
+      setTimeout(() => {
+        if (!this.running) return;
+        if (opts.srError) { this.onerror?.({ error: opts.srError }); this.running = false; this.onend?.(); return; }
+        const spec = sessions[n - 1]; // later restarts hear nothing, like a real silent session
+        if (spec && spec.length) {
+          const results = spec.map((r) => { const alt = [{ transcript: r.final ?? r.interim, confidence: 0.9 }]; alt.isFinal = r.final !== undefined; return alt; });
+          this.onresult?.({ resultIndex: 0, results });
+        }
+        if (!opts.neverEnd) { this.running = false; this.onend?.(); }
+      }, opts.srDelay ?? 60);
+    }
+    stop() { log.push('sr.stop'); if (this.running) { this.running = false; setTimeout(() => this.onend?.(), 10); } }
+  }
+  class FakeMR {
+    constructor() { this.state = 'inactive'; this.mimeType = 'audio/mp4'; }
+    static isTypeSupported() { return true; }
+    start() { if (opts.mrThrows) throw new DOMException('fake start failure', 'NotSupportedError'); this.state = 'recording'; log.push('mr.start'); }
+    stop() { log.push('mr.stop'); this.state = 'inactive'; setTimeout(() => { this.ondataavailable?.({ data: new Blob(['xxxx']) }); this.onstop?.(); }, 5); }
+  }
+  const tracks = [{ live: true, stop() { this.live = false; log.push('track.stop'); } }];
+  win.SpeechRecognition = FakeSR; win.webkitSpeechRecognition = FakeSR;
+  win.MediaRecorder = FakeMR;
+  win.navigator.mediaDevices.getUserMedia = async () => { log.push('gum'); return { getTracks: () => tracks }; };
+  return { log, tracks, starts: () => startCount };
+}
+
+// ------------------------------------------------------------- iframe app
+
+function seedProfile(extra = {}) {
+  const now = new Date().toISOString();
+  return {
+    version: 8, name: 'Test', lang: 'en', onboarded: true, createdAt: now,
+    caps: { tts: true, mic: true, asr: true, checkedAt: null, captureMode: 'auto', captureLearned: 'rec-first' },
+    program: { startedAt: now, days: [0, 1, 2, 3, 4, 5, 6] },
+    levels: { speech: 'A2', vocab: 'A2', sales: 'A1', listening: 'A2' },
+    placement: { done: true }, ...extra,
+  };
+}
+
+async function mountApp(hash, { said = '', opts = {}, profile = seedProfile() } = {}) {
+  localStorage.setItem('englishApp.profile.v1', JSON.stringify(profile));
+  const fr = document.createElement('iframe');
+  fr.style.cssText = 'position:fixed;left:-9999px;width:400px;height:800px';
+  const fakeSrc = `
+    window.__said = ${JSON.stringify(said)};
+    window.__log = [];
+    window.__opts = ${JSON.stringify(opts)};
+    class FakeSR { constructor(){ this.running=false; }
+      start(){ window.__log.push('sr.start'); this.running=true; setTimeout(()=>{ if(!this.running) return;
+        if (window.__opts.srError) { this.onerror&&this.onerror({error:window.__opts.srError}); this.running=false; this.onend&&this.onend(); return; }
+        if (window.__said) { const alt=[{transcript:window.__said,confidence:.9}]; alt.isFinal=true; this.onresult&&this.onresult({resultIndex:0,results:[alt]}); }
+        this.running=false; this.onend&&this.onend(); }, 60); }
+      stop(){ window.__log.push('sr.stop'); if(this.running){ this.running=false; setTimeout(()=>this.onend&&this.onend(),10);} } }
+    window.SpeechRecognition = FakeSR; window.webkitSpeechRecognition = FakeSR;
+    class FakeMR { constructor(){ this.state='inactive'; this.mimeType='audio/mp4'; } static isTypeSupported(){return true;}
+      start(){ this.state='recording'; } stop(){ this.state='inactive'; setTimeout(()=>{ this.ondataavailable&&this.ondataavailable({data:new Blob(['xxxx'])}); this.onstop&&this.onstop(); },5); } }
+    window.MediaRecorder = FakeMR;
+    navigator.mediaDevices.getUserMedia = async () => ({ getTracks: () => [{ stop(){ window.__log.push('track.stop'); } }] });
+    window.addEventListener('error', e => window.__log.push('ERR ' + e.message));`;
+  fr.srcdoc = `<!doctype html><html><head><meta charset="utf-8"><base href="${location.origin}/"><link rel="stylesheet" href="css/styles.css"></head><body><script>${fakeSrc}</script><main id="app" class="app"></main><nav id="nav" class="nav" hidden></nav><script type="module" src="js/app.js?t=${V}"></script></body></html>`;
+  document.body.append(fr);
+  await new Promise((r) => fr.addEventListener('load', r));
+  await wait(500);
+  fr.contentWindow.location.hash = hash;
+  await wait(500);
+  const doc = fr.contentDocument;
+  const click = (sel, re) => {
+    const el = [...doc.querySelectorAll(sel)].find((b) => !re || re.test(b.textContent));
+    if (!el) throw new Error(`no ${sel} ${re || ''} in: ${doc.querySelector('#app')?.innerText.slice(0, 120)}`);
+    el.click(); return el;
+  };
+  const sessions = () => JSON.parse(localStorage.getItem('englishApp.profile.v1')).sessions || [];
+  const profileNow = () => JSON.parse(localStorage.getItem('englishApp.profile.v1'));
+  const speakOnce = async () => { click('button.record'); await wait(250); click('button.record'); await wait(900); };
+  return { fr, win: fr.contentWindow, doc, click, sessions, profileNow, speakOnce, text: () => doc.querySelector('#app').innerText, dispose: () => fr.remove() };
+}
+
+// ================================================================== run
+
+const host = location.hostname;
+if (!/^(localhost|127\.0\.0\.1)$/.test(host)) {
+  summary.textContent = 'Refusing to run: tests write to localStorage and must only run on localhost.';
+  throw new Error('not localhost');
+}
+const savedStorage = {};
+for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); savedStorage[k] = localStorage.getItem(k); }
+localStorage.clear();
+
+try {
+  // ---------------------------------------------------------------- scoring
+  suite('scoring');
+  const sc = await imp('/js/scoring.js');
+  const acc = (a, b) => sc.scoreAttempt(a, b, 3).accuracy;
+  await test("contractions we'd / you'd", () => { eq(acc("We'd like to start.", 'we would like to start'), 1); eq(acc("You'd love it.", 'you would love it'), 1); });
+  await test('dollar amount vs spoken', () => { eq(acc("It's $49 a month.", "it's forty nine dollars a month"), 1); eq(acc("It's $49 a month.", "It's $49 a month"), 1); });
+  await test('ok / okay / OK', () => { eq(acc('Okay, that makes sense.', 'OK that makes sense'), 1); });
+  await test('hyphen compounds', () => { eq(acc('a three-month plan', 'a 3 month plan'), 1); eq(acc('week-by-week', 'week by week'), 1); });
+  await test('percent, time, ordinal, year', () => {
+    eq(acc('We grew 15% this year.', 'we grew fifteen percent this year'), 1);
+    eq(acc('It starts at 9:30.', 'it starts at nine thirty'), 1);
+    eq(acc('On the 21st of May.', 'on the twenty first of May'), 1);
+    eq(acc('Since 2019.', 'since twenty nineteen'), 1);
+  });
+  await test('possessive vs plural is inaudible', () => eq(acc("The employee's desk.", 'the employees desk'), 1));
+  await test('prototype-named words are harmless', () => eq(sc.normalize('constructor toString'), 'constructor tostring'));
+  await test('numberToWords', () => { eq(sc.numberToWords(1000), 'one thousand'); eq(sc.numberToWords(250), 'two hundred fifty'); eq(sc.numberToWords(0), 'zero'); });
+  await test('a wrong word is still wrong', () => ok(acc('I think it is here.', 'I sink it is here') < 1));
+  await test('cut-off attempt is flagged unreliable', () => {
+    const r = sc.scoreAttempt('I would rather walk than wait for the bus.', 'I would rather walk', 6);
+    ok(r.scored && r.unreliable && r.reason === 'cutoff', JSON.stringify(r.reason));
+    ok(!sc.countsTowardStats(r));
+  });
+  await test('a genuine mispronunciation is NOT flagged unreliable', () => {
+    const r = sc.scoreAttempt('I would rather walk than wait for the bus.', 'I would rather vork than wait for the bus', 6);
+    ok(!r.unreliable && sc.countsTowardStats(r));
+  });
+  await test('filler-only transcript is unscored', () => eq(sc.scoreAttempt('Hello there.', 'um uh', 2).scored, false));
+
+  // ------------------------------------------------------------- phonetics
+  suite('content integrity');
+  const ph = await imp('/js/phonetics.js');
+  const S = await imp('/js/content/sentences.js');
+  await test('every declared tag is carried by a real word', () => {
+    const bad = [];
+    for (const [lvl, arr] of Object.entries(S.SENTENCES)) for (const s of arr) {
+      const carried = new Set(); sc.tokenize(s.text).forEach((w) => ph.wordTags(w).forEach((t) => carried.add(t)));
+      for (const tag of s.tags) if (tag !== 'perfect' && !carried.has(tag)) bad.push(`${lvl}: ${s.text} lacks ${tag}`);
+    }
+    eq(bad, []);
+  });
+  await test('sentence texts are unique', () => {
+    const all = Object.values(S.SENTENCES).flat().map((s) => s.text);
+    eq(all.filter((x, i) => all.indexOf(x) !== i), []);
+  });
+  const SA = await imp('/js/content/sales.js');
+  const scenarios = Object.values(SA.SALES_SCENARIOS).flat();
+  await test('sales: ids unique, every turn has exactly one best, first is best', () => {
+    const ids = scenarios.map((s) => s.id); eq(ids.filter((x, i) => ids.indexOf(x) !== i), []);
+    for (const s of scenarios) for (const t of s.turns) {
+      eq(t.options.filter((o) => o.quality === 'best').length, 1, s.id);
+      eq(t.options[0].quality, 'best', s.id);
+      ok(t.options.every((o) => o.why && o.text), `${s.id} missing text/why`);
+    }
+  });
+  await test('sales: the best answer is not the longest in most turns (length bias)', () => {
+    let longest = 0, total = 0;
+    for (const s of scenarios) for (const t of s.turns) {
+      total++; const l = t.options.reduce((a, b) => (b.text.length > a.text.length ? b : a));
+      if (l.quality === 'best') longest++;
+    }
+    ok(longest / total <= 0.5, `best is longest in ${longest}/${total}`);
+  });
+  await test('sales: every option text tokenizes to words only', () => {
+    for (const s of scenarios) for (const t of s.turns) for (const o of t.options) {
+      ok(sc.tokenize(o.text).length >= 2, o.text);
+    }
+  });
+  const VO = await imp('/js/content/vocab.js');
+  await test('vocab: ids unique, he + example present', () => {
+    const all = Object.values(VO.VOCAB).flat();
+    eq(all.map((e) => e.id).filter((x, i, a) => a.indexOf(x) !== i), []);
+    ok(all.every((e) => e.he && e.example && e.word));
+  });
+  const LI = await imp('/js/content/listening.js');
+  await test('listening: ids unique, each question has 4 distinct options with answer 0', () => {
+    const all = Object.values(LI.LISTENING_PASSAGES).flat();
+    eq(all.map((p) => p.id).filter((x, i, a) => a.indexOf(x) !== i), []);
+    for (const p of all) for (const q of p.questions) { eq(q.answer, 0, p.id); eq(new Set(q.options).size, q.options.length, p.id); }
+  });
+
+  // ------------------------------------------------------------------ i18n
+  suite('i18n');
+  const src = await (await fetch(`/js/i18n.js?v=${V}`)).text();
+  const I = await imp('/js/i18n.js');
+  await test('every key resolves in both languages', () => {
+    const keys = [...new Set([...src.matchAll(/^\s*'([a-zA-Z]+\.[A-Za-z0-9.\-]+)'\s*:/gm)].map((m) => m[1]))];
+    const bad = [];
+    for (const lang of ['he', 'en']) { I.setLang(lang); for (const k of keys) { const v = I.t(k); if (!v || v === k) bad.push(`${lang}:${k}`); } }
+    I.setLang('en');
+    eq(bad, []); ok(keys.length > 250, `only ${keys.length} keys found`);
+  });
+  await test('keys used in code exist', async () => {
+    const files = ['app', 'drills/common', 'drills/repeat', 'drills/shadow', 'drills/fluency', 'drills/vocab', 'drills/sales', 'drills/listening'];
+    const used = new Set();
+    for (const f of files) {
+      const s = await (await fetch(`/js/${f}.js?v=${V}`)).text();
+      for (const m of s.matchAll(/\bt\(\s*['"]([a-zA-Z]+\.[A-Za-z0-9.\-]+)['"]/g)) used.add(m[1]);
+    }
+    const bad = [...used].filter((k) => I.t(k) === k);
+    eq(bad, []);
+  });
+
+  // ---------------------------------------------------------------- program
+  suite('program');
+  const pr = await imp('/js/program.js');
+  await test('streak across the Israeli DST fall-back week', () => {
+    const sessions = []; const d = new Date(2025, 9, 20);
+    for (let i = 0; i < 10; i++) { sessions.push({ date: new Date(d).toLocaleDateString('en-CA') }); d.setDate(d.getDate() + 1); }
+    const hist = pr.dayHistory(sessions, [0, 1, 2, 3, 4, 5, 6], new Date(2025, 9, 20), new Date(2025, 9, 29));
+    eq(new Set(hist.map((x) => x.date)).size, 10);
+  });
+  await test('missedRun is 0 for a brand-new profile', () => eq(pr.missedRun([], [0, 1, 2, 3, 4], new Date(), new Date().toISOString()), 0));
+  await test('integration cycle never repeats a drill within a day', () => {
+    for (let i = 0; i < 200; i++) {
+      const plan = pr.planFor({ program: { startedAt: new Date(Date.now() - (80 + i) * 864e5).toISOString() }, programMonths: 3, budget: { speech: 15 } }, new Date());
+      eq(new Set(plan.map((p) => p.drill)).size, plan.length);
+    }
+  });
+
+  // ---------------------------------------------------------------- capture
+  suite('capture (speech.js with fake media)');
+  const fresh = async (opts) => { const f = installFakes(window, opts); const m = await import(`/js/speech.js?cap=${Math.random()}`); return { ...f, m }; };
+  await test('result is returned with transcript and recording', async () => {
+    const { m } = await fresh({ sessions: [[{ final: 'hello there' }]] });
+    const c = new m.Capture({ mode: 'both-rec-first' }); await c.start(); await wait(300);
+    const r = await c.stop();
+    eq(r.transcript, 'hello there'); ok(r.blob && r.blob.size > 0); eq(r.asr.status, 'ok');
+  });
+  await test('recognition restarts after a pause and the transcript accumulates', async () => {
+    const { m, starts } = await fresh({ sessions: [[{ final: 'I would rather' }], [{ final: 'walk than wait' }]] });
+    const c = new m.Capture({ mode: 'both-rec-first' }); await c.start(); await wait(700);
+    const r = await c.stop();
+    ok(starts() >= 2, `starts ${starts()}`); eq(r.transcript, 'I would rather walk than wait');
+  });
+  await test('fatal recognition error does not restart-storm', async () => {
+    const { m, starts } = await fresh({ srError: 'not-allowed' });
+    const c = new m.Capture({ mode: 'both-rec-first', keepAlive: true }); await c.start(); await wait(1500);
+    const r = await c.stop();
+    ok(starts() <= 2, `restarted ${starts()} times`); eq(r.asr.status, 'blocked'); ok(r.blob, 'recording must still be returned');
+  });
+  await test('failed MediaRecorder start releases the microphone', async () => {
+    const { m, tracks } = await fresh({ mrThrows: true });
+    const c = new m.Capture({ mode: 'both-rec-first' });
+    let threw = false; try { await c.start(); } catch { threw = true; }
+    ok(threw, 'should rethrow'); ok(tracks.every((t) => !t.live), 'track left live');
+  });
+  await test('stop() ends recognition BEFORE the recorder', async () => {
+    const { m, log } = await fresh({ neverEnd: true, sessions: [[{ final: 'hi' }]] });
+    const c = new m.Capture({ mode: 'both-rec-first' }); await c.start(); await wait(200);
+    await c.stop();
+    ok(log.indexOf('sr.stop') !== -1 && log.indexOf('sr.stop') < log.indexOf('mr.stop'), log.join(','));
+  });
+  await test('asr-first starts recognition before the microphone is opened', async () => {
+    const { m, log } = await fresh({});
+    const c = new m.Capture({ mode: 'both-asr-first' }); await c.start();
+    ok(log.indexOf('sr.start') < log.indexOf('gum'), log.join(',')); await c.stop();
+  });
+  await test('non-final (interim) text is kept when no final arrives', async () => {
+    const { m } = await fresh({ sessions: [[{ interim: 'this is worth' }], []] });
+    const c = new m.Capture({ mode: 'both-rec-first' }); await c.start(); await wait(300);
+    const r = await c.stop(); eq(r.transcript, 'this is worth');
+  });
+  await test('record-only mode never touches recognition', async () => {
+    const { m, starts } = await fresh({});
+    const c = new m.Capture({ mode: 'record-only' }); await c.start(); const r = await c.stop();
+    eq(starts(), 0); eq(r.asr.status, 'disabled'); ok(r.blob);
+  });
+
+  // ----------------------------------------------------------------- drills
+  suite('drills (real app in an iframe, fake mic)');
+  const SAY = 'This is worth thinking about very carefully.';
+  await test('Repeat: scored attempt shows %, words and mistake cards', async () => {
+    const a = await mountApp('#/drill/repeat', { said: 'this is vorth sinking about very carefully' });
+    await a.speakOnce();
+    const t = a.text(); a.dispose();
+    ok(/%/.test(t) && /Word by word/.test(t), t.slice(0, 300));
+  });
+  await test('Repeat: End session with zero attempts records nothing', async () => {
+    const a = await mountApp('#/drill/repeat');
+    a.click('button.link', /end session/i); await wait(300);
+    const n = a.sessions().length, streak = a.profileNow().stats?.streak; a.dispose();
+    eq(n, 0, 'sessions'); ok(!streak, `streak ${streak}`);
+  });
+  await test('Repeat: a cut-off attempt is shown as partial and not counted', async () => {
+    const a = await mountApp('#/drill/repeat', { said: 'this is' });
+    const target = a.doc.querySelector('.target').textContent;
+    a.win.__said = target.split(' ').slice(0, 2).join(' ');
+    await a.speakOnce();
+    const t = a.text(); const phon = a.profileNow().phonemes; a.dispose();
+    ok(/Only part of it was heard/.test(t), t.slice(0, 300)); eq(Object.keys(phon || {}), []);
+  });
+  await test('Repeat: no transcript shows a reason, not the old blanket message', async () => {
+    const a = await mountApp('#/drill/repeat', { said: '' });
+    await a.speakOnce(); const t = a.text(); a.dispose();
+    ok(/No words were picked up|compare/i.test(t) && !/not available on this device/.test(t), t.slice(0, 300));
+  });
+  await test('Repeat: blocked recognition explains itself', async () => {
+    const a = await mountApp('#/drill/repeat', { opts: { srError: 'not-allowed' } });
+    await a.speakOnce(); const t = a.text(); a.dispose();
+    ok(/blocked|Dictation/i.test(t), t.slice(0, 300));
+  });
+  await test('Shadow: End session with zero attempts records nothing', async () => {
+    const a = await mountApp('#/drill/shadow');
+    a.click('button.link', /end session/i); await wait(300);
+    const n = a.sessions().length; a.dispose(); eq(n, 0);
+  });
+  await test('Fluency: Exit before any round records nothing', async () => {
+    const a = await mountApp('#/drill/fluency');
+    a.click('button.link', /exit/i); await wait(300);
+    const n = a.sessions().length; a.dispose(); eq(n, 0);
+  });
+  await test('Sales: Try again replaces the turn instead of double counting', async () => {
+    const a = await mountApp('#/drill/sales', { said: 'x' });
+    a.click('button.option'); await wait(200);
+    const spoken = a.doc.querySelector('.target').textContent;
+    a.win.__said = spoken;
+    await a.speakOnce();
+    a.click('button', /try again/i); await wait(300);
+    a.win.__said = spoken; await a.speakOnce();
+    a.click('button.link', /end session/i); await wait(300);
+    const s = a.sessions(); a.dispose();
+    eq(s.length, 1); eq(s[0].detail.turns, 1);
+  });
+  await test('capture diagnostics are persisted after an attempt', async () => {
+    const a = await mountApp('#/drill/repeat', { said: SAY });
+    await a.speakOnce();
+    const p = a.profileNow(); a.dispose();
+    ok(Array.isArray(p.captureLog) && p.captureLog.length >= 1, 'no captureLog'); ok(p.captureStats.graded + p.captureStats.ungraded >= 1);
+  });
+  await test('Speech Lab and Today render', async () => {
+    const a = await mountApp('#/diag'); const t1 = a.text();
+    a.win.location.hash = '#/today'; await wait(400); const t2 = a.text(); a.dispose();
+    ok(/Speech Lab/.test(t1) && /Today/.test(t2 + 'Today'), t1.slice(0, 100));
+  });
+
+  // ------------------------------------------------------------------ state
+  suite('state / migration');
+  await test('v7 profile migrates to v8 without losing data', async () => {
+    const old = { version: 7, name: 'Elad', lang: 'he', onboarded: true, createdAt: '2026-08-31T10:00:00.000Z',
+      levels: { speech: 'B1', vocab: 'A2', sales: 'A1', listening: 'A2' }, caps: { tts: true, mic: true, asr: false, checkedAt: 'x' },
+      sessions: Array.from({ length: 87 }, (_, i) => ({ date: '2026-09-01', at: i, drill: 'repeat', track: 'speech', seconds: 480, accuracy: 0.8 })),
+      stats: { streak: 23, lastActiveDate: '2026-09-23', totalSeconds: 41000, drillsDone: 87 }, program: { startedAt: '2026-08-31T00:00:00.000Z', days: [0, 1, 2, 3, 4] },
+      phonemes: { w: { attempts: 20, score: 0.7 } }, reviews: [{ id: 'x1', reps: 2 }] };
+    localStorage.setItem('englishApp.profile.v1', JSON.stringify(old));
+    const st = await import(`/js/state.js?mig=${Math.random()}`);
+    const p = st.get();
+    eq(p.version, 8); eq(p.sessions.length, 87); eq(p.levels.speech, 'B1'); eq(p.stats.streak, 23);
+    eq(p.phonemes.w.attempts, 20); eq(p.reviews.length, 1); eq(p.caps.asr, false);
+    eq(p.caps.captureMode, 'auto'); ok(Array.isArray(p.captureLog)); eq(p.budget.sales, 10);
+  });
+  await test('snapshot is not overwritten by a second load the same day', async () => {
+    localStorage.clear();
+    localStorage.setItem('englishApp.profile.v1', JSON.stringify({ version: 7, name: 'A', sessions: [{ date: 'd' }] }));
+    await import(`/js/state.js?snap=${Math.random()}`);
+    const first = localStorage.getItem('englishApp.profile.snapshot');
+    localStorage.setItem('englishApp.profile.v1', JSON.stringify({ version: 8, name: 'BAD', sessions: [] }));
+    await import(`/js/state.js?snap=${Math.random()}`);
+    eq(localStorage.getItem('englishApp.profile.snapshot'), first);
+  });
+  await test('weakTags never returns the grammar tag "perfect"', async () => {
+    localStorage.clear();
+    localStorage.setItem('englishApp.profile.v1', JSON.stringify({ version: 8, phonemes: { perfect: { attempts: 5, score: 0.1 }, w: { attempts: 5, score: 0.5 } } }));
+    const st = await import(`/js/state.js?wk=${Math.random()}`);
+    ok(!st.weakTags(3).includes('perfect'));
+  });
+} finally {
+  localStorage.clear();
+  for (const [k, v] of Object.entries(savedStorage)) localStorage.setItem(k, v);
+  summary.textContent = `${fail ? 'FAILED' : 'ALL PASSED'} - ${pass} passed, ${fail} failed, ${skip} skipped`;
+  summary.style.color = fail ? '#dc2626' : '#16a34a';
+  document.title = `${fail ? 'FAIL' : 'PASS'} ${pass}/${pass + fail} - tests`;
+}

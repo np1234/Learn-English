@@ -9,16 +9,16 @@
 // This mix is what keeps a 5-minute budget inside FSRS's real throughput
 // while still surfacing pronunciation data on new vocabulary.
 
-import { h, clear, renderWords, ltr } from '../ui.js';
+import { h, clear, ltr } from '../ui.js';
 import { speak, revokeUrl } from '../speech.js';
-import { scoreAttempt, verdict } from '../scoring.js';
+import { scoreAttempt, countsTowardStats } from '../scoring.js';
 import { tagScores } from '../phonetics.js';
 import { byId } from '../content/vocab.js';
 import { review, gradeFromAccuracy, AGAIN, HARD, GOOD, EASY } from '../srs.js';
 import { buildQueue, isLapsed } from '../vocab.js';
 import { t, posLabel } from '../i18n.js';
 import * as store from '../state.js';
-import { recordButton, comparePanel, micError, playSlow, renderMistakes } from './common.js';
+import { recordButton, comparePanel, micError, playSlow, attemptFeedback } from './common.js';
 
 const GRADES = [
   { grade: AGAIN, key: 'vc.again', tone: 'weak' },
@@ -148,23 +148,13 @@ export function mount(root, { onFinish }) {
           revokeUrl(lastUrl);
           lastUrl = result.url;
           const scored = scoreAttempt(entry.example, result.transcript, result.seconds);
-          if (scored.scored) {
+          if (countsTowardStats(scored)) {
             store.recordTagScores(tagScores(scored.words));
             suggested = gradeFromAccuracy(scored.accuracy);
           }
-          const v = verdict(scored.scored ? scored.accuracy : null);
           clear(feedback).append(
-            h('div', { class: `verdict ${v.tone}` },
-              h('strong', {}, t(v.key)),
-              scored.scored ? ` - ${Math.round(scored.accuracy * 100)}%` : '',
-            ),
-            // See repeat.js's identical comment: append() stringifies arrays
-            // and null instead of flattening/filtering them, so this must be
-            // spread as separate, pre-filtered arguments, not one array literal.
-            ...[
-              scored.scored ? renderWords(scored) : h('p', { class: 'hint small' }, t('d.compareByEar')),
-              scored.scored ? renderMistakes(scored) : null,
-            ].filter(Boolean),
+            // Pre-filtered array to spread - see common.js attemptFeedback().
+            ...attemptFeedback(scored, result),
             comparePanel(entry.example, result.url),
           );
           renderGrades();

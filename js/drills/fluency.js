@@ -15,7 +15,7 @@ import { tokenize, wpm } from '../scoring.js';
 import { FLUENCY_PROMPTS, pickOne } from '../content/sentences.js';
 import { t } from '../i18n.js';
 import * as store from '../state.js';
-import { micError } from './common.js';
+import { micError, unscoredNote } from './common.js';
 
 const ROUND_SECONDS = {
   preA1: [80, 60, 40],
@@ -60,6 +60,9 @@ export function mount(root, { level, onFinish }) {
 
   function finish() {
     cleanup();
+    store.recordShown('fluency', [prompt]);
+    // Leaving before a single round is recorded is not a practice session.
+    if (!rounds.length) return onFinish?.();
     const rates = rounds.map((r) => r.wpm).filter((x) => typeof x === 'number');
     const gain = rates.length >= 2 ? rates[rates.length - 1] - rates[0] : null;
 
@@ -69,7 +72,6 @@ export function mount(root, { level, onFinish }) {
       accuracy: null,
       detail: { rounds: rounds.length, wpm: rates },
     });
-    store.recordShown('fluency', [prompt]);
 
     clear(root).append(
       h('div', { class: 'card summary' },
@@ -153,6 +155,7 @@ export function mount(root, { level, onFinish }) {
         h('div', { class: 'verdict good' },
           h('strong', {}, rate ? t('fl.wpm', { n: rate }) : t('fl.recorded')),
         ),
+        rate ? null : unscoredNote(result.asr),
         result.url ? h('audio', { src: result.url, controls: '' }) : null,
         h('button', {
           class: 'btn primary wide', type: 'button',

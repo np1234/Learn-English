@@ -4,15 +4,15 @@
 // word-level feedback. Sentences are drawn to hit whichever pronunciation
 // targets he is currently weakest at, so practice concentrates where it pays.
 
-import { h, clear, renderWords, ltr } from '../ui.js';
+import { h, clear, ltr } from '../ui.js';
 import { speak } from '../speech.js';
-import { scoreAttempt, verdict } from '../scoring.js';
+import { scoreAttempt, countsTowardStats } from '../scoring.js';
 import { pickSentences } from '../content/sentences.js';
 import { tagScores } from '../phonetics.js';
 import { contrastFor } from '../content/minimal-pairs.js';
 import { t, phoneme } from '../i18n.js';
 import * as store from '../state.js';
-import { recordButton, comparePanel, micError, playSlow, playContrast, renderMistakes } from './common.js';
+import { recordButton, comparePanel, micError, playSlow, playContrast, attemptFeedback } from './common.js';
 import { revokeUrl } from '../speech.js';
 
 export function mount(root, { level, weakTags, count = 6, onFinish }) {
@@ -27,6 +27,11 @@ export function mount(root, { level, weakTags, count = 6, onFinish }) {
 
   function finish() {
     control?.cancel();
+    const tried = attempts.filter(Boolean).length;
+    // Ending before a single attempt is not a practice session: recording one
+    // used to count the day as practised, extend the streak and tick the
+    // drill "Done" for a 4-second visit.
+    if (!tried) return onFinish?.();
     const scored = attempts.filter((a) => a && a.accuracy !== null);
     const avg = scored.length
       ? scored.reduce((a, b) => a + b.accuracy, 0) / scored.length
@@ -85,26 +90,17 @@ export function mount(root, { level, weakTags, count = 6, onFinish }) {
         revokeUrl(lastUrl);
         lastUrl = result.url;
         const scored = scoreAttempt(s.text, result.transcript, result.seconds);
-        attempts[i] = { text: s.text, accuracy: scored.scored ? scored.accuracy : null };
+        // An attempt the recogniser only caught part of is shown but never
+        // counted: its "missing" words were not judged, just not heard.
+        const counts = countsTowardStats(scored);
+        attempts[i] = { text: s.text, accuracy: counts ? scored.accuracy : null };
         // Each sound is credited only on the words that carry it.
-        if (scored.scored) store.recordTagScores(tagScores(scored.words, s.tags));
+        if (counts) store.recordTagScores(tagScores(scored.words, s.tags));
 
-        const v = verdict(scored.scored ? scored.accuracy : null);
         clear(feedback).append(
-          h('div', { class: `verdict ${v.tone}` },
-            h('strong', {}, t(v.key)),
-            scored.scored ? ` - ${Math.round(scored.accuracy * 100)}%` : '',
-          ),
-          // Two independent, filtered arguments spread into append() - NOT a
-          // single array literal. Element.append() does not flatten arrays or
-          // filter null: it stringifies them (`[object HTMLElement],null`
-          // literally rendered as text). That only ever showed up on a real
-          // device with working ASR, since the mic is blocked in every
-          // browser-pane session used to develop this app.
-          ...[
-            scored.scored ? renderWords(scored) : h('p', { class: 'hint small' }, t('d.compareByEar')),
-            scored.scored ? renderMistakes(scored) : null,
-          ].filter(Boolean),
+          // attemptFeedback() returns a pre-filtered array to SPREAD - append()
+          // stringifies arrays and null instead of flattening/filtering them.
+          ...attemptFeedback(scored, result),
           comparePanel(s.text, result.url),
           h('div', { class: 'row' },
             h('button', { class: 'btn ghost', type: 'button', onClick: render }, t('d.tryAgain')),

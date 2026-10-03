@@ -14,14 +14,14 @@
 // own; the read-aloud's ASR accuracy only sweetens it when the device
 // happens to score. See turnScore() below.
 
-import { h, clear, ltr, renderWords } from '../ui.js';
+import { h, clear, ltr } from '../ui.js';
 import { speak, revokeUrl } from '../speech.js';
-import { scoreAttempt, verdict } from '../scoring.js';
+import { scoreAttempt, countsTowardStats } from '../scoring.js';
 import { tagScores } from '../phonetics.js';
 import { pickScenario, shuffleTurnOptions } from '../content/sales.js';
 import { t } from '../i18n.js';
 import * as store from '../state.js';
-import { recordButton, comparePanel, micError, renderMistakes } from './common.js';
+import { recordButton, comparePanel, micError, attemptFeedback } from './common.js';
 
 const TAG_LABEL = { best: 'sl.tagBest', ok: 'sl.tagOk', weak: 'sl.tagWeak' };
 
@@ -40,6 +40,8 @@ export function mount(root, { level, onFinish }) {
   let phase = 'choose'; // 'choose' -> 'speak'
   let shuffled = null; // this turn's shuffled options, fixed once chosen from
   let chosenOption = null;
+  // Keyed by turn index, NOT appended: "Try again" must replace the earlier
+  // attempt at that turn rather than count the same turn twice.
   const results = [];
   const startedAt = Date.now();
   let control = null;
@@ -47,22 +49,23 @@ export function mount(root, { level, onFinish }) {
 
   function finish() {
     control?.cancel();
-    const accuracy = results.length
-      ? results.reduce((a, r) => a + turnScore(r), 0) / results.length
+    const done = results.filter(Boolean);
+    const accuracy = done.length
+      ? done.reduce((a, r) => a + turnScore(r), 0) / done.length
       : null;
 
-    if (results.length) {
+    if (done.length) {
       store.recordSession({
         drill: 'sales', track: 'sales',
         seconds: (Date.now() - startedAt) / 1000,
         accuracy,
         detail: {
           scenario: scenario.id,
-          turns: results.length,
-          best: results.filter((r) => r.quality === 'best').length,
-          ok: results.filter((r) => r.quality === 'ok').length,
-          weak: results.filter((r) => r.quality === 'weak').length,
-          spoken: results.filter((r) => r.scored).length,
+          turns: done.length,
+          best: done.filter((r) => r.quality === 'best').length,
+          ok: done.filter((r) => r.quality === 'ok').length,
+          weak: done.filter((r) => r.quality === 'weak').length,
+          spoken: done.filter((r) => r.scored).length,
         },
       });
       if (accuracy !== null) store.recordAccuracy('sales', accuracy);
@@ -75,7 +78,7 @@ export function mount(root, { level, onFinish }) {
     clear(root).append(
       h('div', { class: 'card summary' },
         h('h2', {}, t('sl.scenarioDone')),
-        h('p', { class: 'big-stat' }, t('sl.turnsCount', { n: results.length })),
+        h('p', { class: 'big-stat' }, t('sl.turnsCount', { n: done.length })),
         h('p', { class: 'hint' }, t('sl.sessionHint')),
         h('button', { class: 'btn primary wide', type: 'button', onClick: () => onFinish?.() }, t('d.done')),
       ),
@@ -121,27 +124,18 @@ export function mount(root, { level, onFinish }) {
         revokeUrl(lastUrl);
         lastUrl = result.url;
         const scored = scoreAttempt(chosenOption.text, result.transcript, result.seconds);
-        if (scored.scored) store.recordTagScores(tagScores(scored.words));
-        results.push({
+        const counts = countsTowardStats(scored);
+        if (counts) store.recordTagScores(tagScores(scored.words));
+        results[turnIdx] = {
           quality: chosenOption.quality,
-          scored: scored.scored,
-          accuracy: scored.scored ? scored.accuracy : null,
-        });
+          scored: counts,
+          accuracy: counts ? scored.accuracy : null,
+        };
 
-        const v = verdict(scored.scored ? scored.accuracy : null);
         const lastTurn = turnIdx + 1 >= scenario.turns.length;
         clear(feedback).append(
-          h('div', { class: `verdict ${v.tone}` },
-            h('strong', {}, t(v.key)),
-            scored.scored ? ` - ${Math.round(scored.accuracy * 100)}%` : '',
-          ),
-          // See repeat.js's identical comment: append() stringifies arrays
-          // and null instead of flattening/filtering them, so this must be
-          // spread as separate, pre-filtered arguments, not one array literal.
-          ...[
-            scored.scored ? renderWords(scored) : h('p', { class: 'hint small' }, t('d.compareByEar')),
-            scored.scored ? renderMistakes(scored) : null,
-          ].filter(Boolean),
+          // Pre-filtered array to spread - see common.js attemptFeedback().
+          ...attemptFeedback(scored, result),
           comparePanel(chosenOption.text, result.url),
           h('div', { class: 'row' },
             h('button', { class: 'btn ghost', type: 'button', onClick: render }, t('d.tryAgain')),

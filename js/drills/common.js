@@ -2,8 +2,9 @@
 // Tap-to-start / tap-to-stop rather than hold-to-talk, because a tap is the most
 // reliable way to satisfy the iOS user-gesture requirement for getUserMedia.
 
-import { h, stopwatch, fmtClock, ltr } from '../ui.js';
-import { Capture, speak, speakSlow, cancelSpeech, browserFamily, detect } from '../speech.js';
+import { h, stopwatch, fmtClock, ltr, renderWords } from '../ui.js';
+import { Capture, speak, speakSlow, cancelSpeech, browserFamily, detect, isIOS } from '../speech.js';
+import { verdict } from '../scoring.js';
 import { t, phoneme } from '../i18n.js';
 import { wordTags } from '../phonetics.js';
 import { contrastFor } from '../content/minimal-pairs.js';
@@ -112,7 +113,7 @@ export function comparePanel(modelText, selfUrl) {
     modelBtn,
     selfBtn,
     audio,
-    h('p', { class: 'hint small' }, t('d.compareHint')),
+    selfUrl ? h('p', { class: 'hint small' }, t('d.compareHint')) : null,
   );
 }
 
@@ -128,6 +129,9 @@ export function micError(err) {
 
   if (name === 'InsecureContextError' || caps.fileProtocol || !caps.secure) {
     return h('p', { class: 'error' }, t('mic.insecure'));
+  }
+  if (name === 'NotSupportedError') {
+    return h('p', { class: 'error' }, t('mic.unsupported'));
   }
   if (name === 'NotFoundError' || name === 'DevicesNotFoundError') {
     return h('p', { class: 'error' }, t('mic.notFound'));
@@ -223,4 +227,44 @@ export function renderMistakes(scored) {
   });
 
   return h('div', { class: 'mistakes' }, h('p', { class: 'mistakes-title' }, t('d.mistakeDetails')), items);
+}
+
+/**
+ * Why an attempt was not graded, in words he can act on - never the old
+ * blanket "scoring is not available on this device", which was shown even
+ * when the recogniser merely missed a quiet start or the network blipped.
+ */
+export function unscoredNote(asr) {
+  const status = asr?.status || 'no-speech';
+  let key = `asr.${status}`;
+  if (status === 'blocked' && isIOS) key = 'asr.blockedIOS';
+  if (!['disabled', 'unsupported', 'blocked', 'network', 'audio-capture', 'error', 'no-speech', 'ok'].includes(status)) key = 'asr.error';
+  if (status === 'ok') key = 'asr.no-speech'; // transcript was only filler
+  return h('p', { class: 'hint small asr-note' }, t(key));
+}
+
+/**
+ * The shared top half of every graded attempt: verdict, word row, and either
+ * the per-word mistake cards or - when the recogniser only caught part of it -
+ * a plain "try again" note instead of misleading red words. Returns an array
+ * of nodes, already filtered, to spread into append() (append() stringifies
+ * arrays and null instead of flattening/filtering them).
+ */
+export function attemptFeedback(scored, result, { showWpm = false } = {}) {
+  const v = verdict(scored.scored ? scored.accuracy : null, { unreliable: scored.unreliable });
+  const nodes = [
+    h('div', { class: `verdict ${v.tone}` },
+      h('strong', {}, t(v.key)),
+      scored.scored && !scored.unreliable ? ` - ${Math.round(scored.accuracy * 100)}%` : '',
+      showWpm && scored.wpm && scored.scored ? h('span', { class: 'wpm' }, ` ${scored.wpm} wpm`) : null,
+    ),
+  ];
+  if (scored.scored) {
+    nodes.push(renderWords(scored));
+    if (scored.unreliable) nodes.push(h('p', { class: 'hint small asr-note' }, t('d.partialHint')));
+    else nodes.push(renderMistakes(scored));
+  } else {
+    nodes.push(unscoredNote(result?.asr));
+  }
+  return nodes.filter(Boolean);
 }

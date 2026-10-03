@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Speak English - tests</title>
+<style>
+  body { font: 14px/1.5 system-ui, sans-serif; margin: 16px; background: #fff; color: #14161c; }
+  h1 { font-size: 18px; margin: 0 0 8px; }
+  #summary { font-weight: 700; margin: 8px 0 16px; }
+  .suite { margin: 14px 0 4px; font-weight: 700; }
+  .row { font-family: ui-monospace, Consolas, monospace; font-size: 12.5px; padding: 1px 0; }
+  .pass { color: #16a34a; } .fail { color: #dc2626; font-weight: 700; } .skip { color: #d18616; }
+  .detail { color: #5c6472; margin-inline-start: 18px; white-space: pre-wrap; }
+</style>
+</head>
+<body>
+<h1>Speak English - in-browser tests</h1>
+<p>Run from <code>http://localhost:8137/tests/</code> only. No dependencies. Drill tests run the real app in a hidden iframe with a fake microphone and recogniser.</p>
+<div id="summary">Running...</div>
+<div id="out"></div>
+<script type="module" src="run.js"></script>
+</body>
+</html>

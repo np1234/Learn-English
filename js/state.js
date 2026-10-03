@@ -20,7 +20,9 @@ import { computeStreak } from './program.js';
 
 const KEY = 'englishApp.profile.v1';
 const SNAPSHOT_KEY = 'englishApp.profile.snapshot';
-const SCHEMA_VERSION = 7;
+const SNAPSHOT_PREV_KEY = 'englishApp.profile.snapshot.prev';
+const SNAPSHOT_AT_KEY = 'englishApp.profile.snapshotAt';
+const SCHEMA_VERSION = 8;
 
 /**
  * Today's date in the LEARNER'S timezone, as YYYY-MM-DD.
@@ -40,7 +42,18 @@ function defaults() {
     lang: 'he',                 // interface language; practice content stays English
     createdAt: new Date().toISOString(),
     onboarded: false,
-    caps: { tts: null, mic: null, asr: null, checkedAt: null },
+    // captureMode: how recording and recognition are combined on THIS device
+    // (see speech.js "capture strategy"); captureLearned is the order `auto`
+    // currently uses; asrReason is why recognition failed in the last probe.
+    caps: {
+      tts: null, mic: null, asr: null, checkedAt: null,
+      captureMode: 'auto', captureLearned: 'rec-first', asrReason: null,
+    },
+    // Compact diagnostics of the last attempts, newest last, plus running
+    // totals - so a silent recognition failure on his phone is visible in the
+    // export instead of vanishing. See recordCapture().
+    captureLog: [],
+    captureStats: { graded: 0, ungraded: 0, silentMisses: 0 },
     budget: { speech: 15, vocab: 5, sales: 10, listening: 5 },
     programMonths: 3,
     // Scheduled practice weekdays, 0=Sun..6=Sat; default Sun-Thu (Israel's
@@ -138,11 +151,30 @@ function migrate(stored) {
     // v6 had no recentContent (see defaults() above) - another new nested
     // default with nothing to move, same no-op pattern as v4/v5/v6.
   }
+  if (v < 8) {
+    // v7 had no capture strategy or diagnostics. caps.captureMode/
+    // captureLearned/asrReason, captureLog and captureStats are new nested
+    // defaults with nothing to move, so deepMerge() backfills them - this
+    // case exists to document that v8 IS a real shape change, same as the
+    // v4-v7 no-op cases above.
+  }
   stored.version = SCHEMA_VERSION;
   return stored;
 }
 
 let profile = null;
+
+function takeSnapshot(stored) {
+  try {
+    const last = Number(localStorage.getItem(SNAPSHOT_AT_KEY)) || 0;
+    const versionChange = (stored.version || 1) !== SCHEMA_VERSION;
+    if (!versionChange && Date.now() - last < 86400000) return;
+    const cur = localStorage.getItem(SNAPSHOT_KEY);
+    if (cur) localStorage.setItem(SNAPSHOT_PREV_KEY, cur);
+    localStorage.setItem(SNAPSHOT_KEY, JSON.stringify(stored));
+    localStorage.setItem(SNAPSHOT_AT_KEY, String(Date.now()));
+  } catch { /* full or blocked */ }
+}
 
 export function load() {
   if (profile) return profile;
@@ -155,8 +187,11 @@ export function load() {
   }
 
   if (stored) {
-    // Keep the last good copy before touching anything.
-    try { localStorage.setItem(SNAPSHOT_KEY, JSON.stringify(stored)); } catch { /* full or blocked */ }
+    // Keep a good copy before touching anything - but NOT on every load:
+    // overwriting each time meant a second reload after a bad migration
+    // replaced the good copy with the bad one. Snapshot when the schema is
+    // about to change or at most once a day, rotating the old one to .prev.
+    takeSnapshot(stored);
     profile = deepMerge(defaults(), migrate(stored));
   } else {
     profile = defaults();
@@ -194,8 +229,8 @@ export function hasSnapshot() {
   try { return !!localStorage.getItem(SNAPSHOT_KEY); } catch { return false; }
 }
 
-export function restoreSnapshot() {
-  const raw = localStorage.getItem(SNAPSHOT_KEY);
+export function restoreSnapshot({ previous = false } = {}) {
+  const raw = localStorage.getItem(previous ? SNAPSHOT_PREV_KEY : SNAPSHOT_KEY);
   if (!raw) throw new Error('no-snapshot');
   profile = deepMerge(defaults(), migrate(JSON.parse(raw)));
   save();
@@ -265,6 +300,37 @@ export function recordTagScores(scores) {
   save();
 }
 
+// ------------------------------------------------------ capture diagnostics
+
+const CAPTURE_LOG_CAP = 20;
+
+/**
+ * Persist one attempt's diagnostics (from speech.js's onCaptureFinished).
+ * `graded` is whether recognition produced a transcript. `silentMiss` marks
+ * the one case that should change strategy: a real recording, recognition
+ * supported and not blocked, yet no words - the signature of a start-order or
+ * audio-session conflict rather than a permission problem.
+ */
+export function recordCapture(diag) {
+  const p = load();
+  const graded = !!diag.transcript;
+  const status = diag.asr?.status;
+  const silentMiss = !graded && status === 'no-speech' && diag.blobBytes > 0 && !diag.heardSpeech && diag.seconds >= 1.5;
+  const stats = p.captureStats || (p.captureStats = { graded: 0, ungraded: 0, silentMisses: 0 });
+  if (graded) { stats.graded += 1; stats.silentMisses = 0; }
+  else if (status !== 'disabled') { stats.ungraded += 1; if (silentMiss) stats.silentMisses += 1; }
+  const log = p.captureLog || (p.captureLog = []);
+  log.push({
+    at: diag.at, mode: diag.mode, seconds: diag.seconds, bytes: diag.blobBytes,
+    words: diag.transcript ? diag.transcript.split(/\s+/).length : 0,
+    status, error: diag.asr?.error || null, restarts: diag.restarts, errors: diag.errors,
+    events: (diag.events || []).slice(0, 30),
+  });
+  if (log.length > CAPTURE_LOG_CAP) p.captureLog = log.slice(-CAPTURE_LOG_CAP);
+  save();
+  return { graded, silentMiss, stats };
+}
+
 // -------------------------------------------------------- recent content
 
 // Long enough to span several sessions' worth of picks (Shadow/Listening
@@ -286,7 +352,8 @@ export function recordShown(track, ids) {
 /** The pronunciation targets he is currently weakest at, worst first. */
 export function weakTags(limit = 3) {
   const p = load();
-  const entries = Object.entries(p.phonemes).filter(([, e]) => e.attempts >= 2);
+  // `perfect` is a clause-level grammar tag, not a sound to coach.
+  const entries = Object.entries(p.phonemes).filter(([tag, e]) => tag !== 'perfect' && e.attempts >= 2);
   if (!entries.length) return ['th_unvoiced', 'w', 'v'].slice(0, limit);
   entries.sort((a, b) => a[1].score - b[1].score);
   return entries.slice(0, limit).map(([tag]) => tag);

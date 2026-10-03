@@ -7,13 +7,13 @@
 //
 // Three passes per passage: listen, speak along quietly, then perform it.
 
-import { h, clear, renderWords, ltr } from '../ui.js';
+import { h, clear, ltr } from '../ui.js';
 import { speak, cancelSpeech, revokeUrl } from '../speech.js';
-import { scoreAttempt, verdict } from '../scoring.js';
+import { scoreAttempt, countsTowardStats } from '../scoring.js';
 import { pickShadowPassages } from '../content/sentences.js';
 import { t } from '../i18n.js';
 import * as store from '../state.js';
-import { recordButton, comparePanel, micError, playSlow, renderMistakes } from './common.js';
+import { recordButton, comparePanel, micError, playSlow, attemptFeedback } from './common.js';
 
 export function mount(root, { level, count = 2, onFinish }) {
   const recentShadow = store.get().recentContent?.shadow || [];
@@ -33,6 +33,12 @@ export function mount(root, { level, count = 2, onFinish }) {
     const scored = results.filter((r) => r && r.accuracy !== null);
     const avg = scored.length ? scored.reduce((a, b) => a + b.accuracy, 0) / scored.length : null;
 
+    // Passage strings double as their own ids (see content/pick.js). They were
+    // on screen either way, so they count as shown - but leaving before
+    // recording anything is not a practice session.
+    store.recordShown('shadow', passages);
+    if (!results.filter(Boolean).length) return onFinish?.();
+
     store.recordSession({
       drill: 'shadow', track: 'speech',
       seconds: (Date.now() - startedAt) / 1000,
@@ -40,11 +46,6 @@ export function mount(root, { level, count = 2, onFinish }) {
       detail: { passages: results.filter(Boolean).length },
     });
     if (avg !== null) store.recordAccuracy('speech', avg);
-    // Passage strings double as their own ids (see content/pick.js) - record
-    // whichever ones were actually presented this session, not just picked,
-    // though here they're the same set (Shadow shows the whole session's
-    // passages up front, unlike Listening which can end early).
-    store.recordShown('shadow', passages);
 
     clear(root).append(
       h('div', { class: 'card summary' },
@@ -99,21 +100,10 @@ export function mount(root, { level, count = 2, onFinish }) {
           revokeUrl(lastUrl);
           lastUrl = result.url;
           const scored = scoreAttempt(text, result.transcript, result.seconds);
-          results[i] = { accuracy: scored.scored ? scored.accuracy : null };
-          const v = verdict(scored.scored ? scored.accuracy : null);
+          results[i] = { accuracy: countsTowardStats(scored) ? scored.accuracy : null };
           clear(feedback).append(
-            h('div', { class: `verdict ${v.tone}` },
-              h('strong', {}, t(v.key)),
-              scored.scored ? ` - ${Math.round(scored.accuracy * 100)}%` : '',
-              scored.wpm ? h('span', { class: 'wpm' }, ` ${scored.wpm} wpm`) : null,
-            ),
-            // See repeat.js's identical comment: append() stringifies arrays
-            // and null instead of flattening/filtering them, so this must be
-            // spread as separate, pre-filtered arguments, not one array literal.
-            ...[
-              scored.scored ? renderWords(scored) : null,
-              scored.scored ? renderMistakes(scored) : null,
-            ].filter(Boolean),
+            // Pre-filtered array to spread - see common.js attemptFeedback().
+            ...attemptFeedback(scored, result),
             comparePanel(text, result.url),
             h('div', { class: 'row' },
               h('button', { class: 'btn ghost', type: 'button', onClick: () => go('record') }, t('sh.recordAgain')),

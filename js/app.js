@@ -1,8 +1,11 @@
 // App shell: onboarding, sound check, placement, home, progress, and routing.
 
 import { h, clear, toast, ltr } from './ui.js';
-import { detect, speak, probeMic, cancelSpeech, isIOS, Capture, primeVoices } from './speech.js';
-import { scoreAttempt } from './scoring.js';
+import {
+  detect, speak, probeMic, cancelSpeech, isIOS, Capture, primeVoices,
+  setCaptureConfig, onCaptureFinished, effectiveMode, CAPTURE_MODES,
+} from './speech.js';
+import { scoreAttempt, countsTowardStats } from './scoring.js';
 import { PlacementTest } from './placement.js';
 import { LEVELS } from './content/sentences.js';
 import { t, setLang, getLang, levelName, phoneme, applyDir, weekdayShort } from './i18n.js';
@@ -124,44 +127,75 @@ function viewSoundCheck() {
       if (!caps.mic || !caps.secure) { results.mic = false; results.asr = false; return renderStep('done'); }
       const status = h('p', { class: 'hint' }, t('sc.willAsk'));
       const out = h('div', {});
+      const probeBtn = h('button', { class: 'btn primary wide', type: 'button' }, t('sc.testMic'));
+
+      // The probe reads a fixed sentence for a full 6 seconds (the old one
+      // gave 3 seconds and no prompt, so anyone who hesitated was recorded
+      // as "recognition does not work on this device" and never asked again).
+      // On a miss the reason is shown, and a second method can be tried -
+      // iPhones differ in whether recognition must start before the
+      // microphone does.
+      async function runProbe(mode) {
+        probeBtn.disabled = true;
+        probeBtn.textContent = t('sc.listening');
+        status.textContent = t('sc.speakNow');
+        clear(out);
+        try {
+          const m = mode || effectiveMode();
+          const probe = await probeMic(6000, { mode: m });
+          results.mic = probe.recorded !== false ? true : false;
+          if (probe.recorded === null) results.mic = probe.asrWorked;
+          results.asr = probe.asrWorked;
+          results.asrReason = probe.asrWorked ? null : probe.asr.status;
+          if (probe.asrWorked && m.startsWith('both-')) {
+            results.captureLearned = m === 'both-asr-first' ? 'asr-first' : 'rec-first';
+            results.captureMode = 'auto';
+            setCaptureConfig({ mode: 'auto', learned: results.captureLearned });
+          }
+          probeBtn.disabled = false;
+          probeBtn.textContent = t('sc.tryAgain');
+          status.textContent = '';
+          const alt = m === 'both-rec-first' ? 'both-asr-first' : 'both-rec-first';
+          clear(out).append(
+            probe.recorded !== false
+              ? h('p', { class: 'ok-line' }, t('sc.micWorks'))
+              : h('p', { class: 'error' }, t('sc.nothingRecorded')),
+            probe.url ? h('audio', { src: probe.url, controls: '' }) : null,
+            probe.asrWorked
+              ? h('p', { class: 'ok-line' }, t('sc.asrWorks'), ' ', ltr(h('span', {}, `"${probe.transcript}"`)))
+              : h('div', {},
+                  h('p', { class: 'hint small' }, probe.recorded ? t('sc.recordedNoAsr') : t('sc.noAsr')),
+                  h('p', { class: 'hint small' }, t(`asr.${['disabled', 'unsupported', 'blocked', 'network', 'audio-capture', 'error', 'no-speech'].includes(probe.asr.status) ? probe.asr.status : 'error'}`)),
+                  detect().asr && (m.startsWith('both-') || m === 'record-only')
+                    ? h('button', { class: 'btn ghost wide', type: 'button', onClick: () => runProbe(alt) }, t('sc.tryAnother'))
+                    : null),
+            h('button', { class: 'btn primary wide', type: 'button', onClick: () => renderStep('done') },
+              probe.asrWorked || probe.recorded ? t('sc.continue') : t('sc.continueAnyway')),
+          );
+        } catch (err) {
+          results.mic = false; results.asr = false;
+          probeBtn.disabled = false;
+          probeBtn.textContent = t('sc.testMic');
+          status.textContent = '';
+          clear(out).append(micError(err),
+            h('button', { class: 'btn primary wide', type: 'button', onClick: () => renderStep('done') }, t('sc.continueAnyway')));
+        }
+      }
+      probeBtn.addEventListener('click', () => runProbe());
+
       body.append(
         h('p', { class: 'step' }, h('strong', {}, t('sc.check2')), ' ', t('sc.canAppHear')),
         status,
-        h('button', {
-          class: 'btn primary wide', type: 'button',
-          onClick: async (e) => {
-            e.target.disabled = true;
-            e.target.textContent = t('sc.listening');
-            status.textContent = t('sc.speakNow');
-            try {
-              const probe = await probeMic(3000);
-              results.mic = probe.recorded;
-              results.asr = probe.asrWorked;
-              clear(out).append(
-                h('p', { class: probe.recorded ? 'ok-line' : 'error' },
-                  probe.recorded ? t('sc.micWorks') : t('sc.nothingRecorded')),
-                probe.url ? h('audio', { src: probe.url, controls: '' }) : null,
-                probe.asrWorked
-                  ? h('p', { class: 'ok-line' }, t('sc.asrWorks'), ' ', ltr(h('span', {}, `"${probe.transcript}"`)))
-                  : h('p', { class: 'hint small' }, t('sc.noAsr')),
-                h('button', { class: 'btn primary wide', type: 'button', onClick: () => renderStep('done') }, t('sc.continue')),
-              );
-            } catch (err) {
-              results.mic = false; results.asr = false;
-              e.target.disabled = false;
-              e.target.textContent = t('sc.testMic');
-              clear(out).append(micError(err),
-                h('button', { class: 'btn primary wide', type: 'button', onClick: () => renderStep('done') }, t('sc.continueAnyway')));
-            }
-          },
-        }, t('sc.testMic')),
+        h('p', { class: 'hint small' }, t('sc.readThis')),
+        ltr(h('p', { class: 'target' }, t('sc.probeSentence'))),
+        probeBtn,
         out,
       );
       return;
     }
 
     // done
-    store.update({ caps: { ...results, checkedAt: new Date().toISOString() } });
+    store.update({ caps: { ...store.get().caps, ...results, checkedAt: new Date().toISOString() } });
     body.append(
       h('ul', { class: 'check-list' },
         h('li', {}, results.tts ? t('sc.soundOk') : t('sc.soundNo')),
@@ -321,10 +355,13 @@ function viewPlacement() {
         const cap = capture; capture = null;
         const result = await cap.stop();
         const scored = item.text ? scoreAttempt(item.text, result.transcript, result.seconds) : null;
+        // A reading the recogniser only partly caught must not lower his
+        // starting speech level by two bands - treat it as unscored.
+        const counts = countsTowardStats(scored);
         test.recordSpeaking({
           type: item.type,
-          scored: !!scored?.scored,
-          accuracy: scored?.scored ? scored.accuracy : null,
+          scored: counts,
+          accuracy: counts ? scored.accuracy : null,
         });
         clear(feedback).append(
           h('p', { class: 'ok-line' }, t('pl.recorded')),
@@ -439,12 +476,13 @@ function viewToday() {
   const scheduledToday = program.isScheduled(p.program.days, now);
   const missed = program.missedRun(p.sessions, p.program.days, now, p.program.startedAt);
 
-  // Fires at most once every two weeks, and only once real history exists -
+  // Fires at most once a week (Safari can purge a site's storage after about
+  // 7 days away), and only once real history exists -
   // stamped the moment it's shown (same "record it as you render it" pattern
   // finishPlacement() already uses) so it never nags on every single visit.
   const daysSinceBackup = p.lastBackupPrompt
     ? Math.floor((now - new Date(p.lastBackupPrompt).getTime()) / 86400000) : Infinity;
-  const showBackupNudge = p.sessions.length >= 5 && daysSinceBackup >= 14;
+  const showBackupNudge = p.sessions.length >= 5 && daysSinceBackup >= 7;
   if (showBackupNudge) store.update({ lastBackupPrompt: todayStr });
 
   const planTask = (drill, minutes) => {
@@ -806,6 +844,37 @@ function viewMore() {
     }
   }
 
+  // File backup: a real file survives a storage purge, unlike the clipboard,
+  // and the iOS share sheet can drop it straight into Files / iCloud.
+  async function saveBackupFile() {
+    const json = store.exportJSON();
+    const name = `speak-english-backup-${store.today()}.json`;
+    try {
+      const file = new File([json], name, { type: 'application/json' });
+      if (navigator.canShare?.({ files: [file] })) {
+        await navigator.share({ files: [file], title: name });
+        toast(t('more.fileSaved'), 'info');
+        return;
+      }
+    } catch (err) {
+      if (err?.name === 'AbortError') return; // he closed the share sheet
+    }
+    const url = URL.createObjectURL(new Blob([json], { type: 'application/json' }));
+    const a = h('a', { href: url, download: name });
+    document.body.append(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 4000);
+    toast(t('more.fileSaved'), 'info');
+  }
+
+  const fileInput = h('input', { type: 'file', accept: 'application/json,.json', hidden: '' });
+  fileInput.addEventListener('change', async () => {
+    const f = fileInput.files?.[0];
+    if (!f) return;
+    try { store.importJSON(await f.text()); toast(t('more.restored'), 'info'); go('#/today'); }
+    catch { toast(t('more.restoreFailed'), 'warn'); }
+    fileInput.value = '';
+  });
+
   const importArea = ltr(h('textarea', { class: 'text-input area', rows: '3', placeholder: t('more.restorePlaceholder'), dir: 'ltr' }));
 
   show(h('div', {},
@@ -844,13 +913,17 @@ function viewMore() {
       h('h2', {}, t('more.deviceTitle')),
       h('p', { class: 'hint small' }, p.caps.asr ? t('more.asrOn') : t('more.asrOff')),
       h('button', { class: 'btn ghost wide', type: 'button', onClick: () => go('#/soundcheck') }, t('more.redoCheck')),
+      h('button', { class: 'btn ghost wide', type: 'button', onClick: () => go('#/diag') }, t('diag.open')),
       isIOS ? h('p', { class: 'hint small' }, t('more.iosNote')) : null,
     ),
 
     h('div', { class: 'card' },
       h('h2', {}, t('more.backupTitle')),
       h('p', { class: 'hint small' }, t('more.backupHint')),
+      h('button', { class: 'btn primary wide', type: 'button', onClick: saveBackupFile }, t('more.saveFile')),
       h('button', { class: 'btn ghost wide', type: 'button', onClick: exportProgress }, t('more.copyProgress')),
+      h('button', { class: 'btn ghost wide', type: 'button', onClick: () => fileInput.click() }, t('more.restoreFile')),
+      fileInput,
       exportArea,
       importArea,
       h('button', {
@@ -877,6 +950,144 @@ function viewMore() {
       }, t('more.startOver')),
     ),
   ));
+}
+
+// -------------------------------------------------------------- speech lab
+
+/**
+ * Hidden diagnostics page (#/diag, linked from More). Grading depends on how
+ * this particular phone combines the recorder and the recogniser, and that can
+ * only be measured on the phone. Each method can be tested by hand; the report
+ * (device, settings, last attempts with their event timelines) is one tap to
+ * copy and send.
+ */
+function viewDiag() {
+  const p = store.get();
+  const out = h('div', {});
+  const tests = [];
+  const reportArea = ltr(h('textarea', { class: 'text-input area', rows: '8', readonly: '', hidden: '', dir: 'ltr' }));
+  const currentEl = h('p', { class: 'hint' });
+  const modes = CAPTURE_MODES.filter((m) => m !== 'auto');
+
+  const modeName = (m) => t(`diag.mode.${m}`);
+  const refreshCurrent = () => {
+    const caps = store.get().caps;
+    const pinned = caps.captureMode && caps.captureMode !== 'auto';
+    currentEl.textContent = t('diag.current', { m: pinned ? modeName(caps.captureMode) : `${modeName('auto')} (${effectiveMode()})` });
+  };
+
+  function buildReport() {
+    const cur = store.get();
+    return JSON.stringify({
+      when: new Date().toISOString(),
+      userAgent: navigator.userAgent,
+      ios: isIOS,
+      detect: detect(),
+      caps: cur.caps,
+      effectiveMode: effectiveMode(),
+      captureStats: cur.captureStats,
+      labTests: tests,
+      recentAttempts: cur.captureLog,
+    }, null, 2);
+  }
+
+  function copyReport() {
+    const json = buildReport();
+    const fallback = () => {
+      reportArea.value = json; reportArea.hidden = false; reportArea.focus(); reportArea.select();
+      toast(t('diag.copyManually'), 'info');
+    };
+    if (navigator.clipboard?.writeText) {
+      navigator.clipboard.writeText(json).then(() => toast(t('diag.copied'), 'info')).catch(fallback);
+    } else fallback();
+  }
+
+  const buttons = modes.map((m) => {
+    const btn = h('button', { class: 'btn ghost wide', type: 'button' }, t('diag.run', { m: modeName(m) }));
+    btn.addEventListener('click', async () => {
+      btn.disabled = true;
+      const label = btn.textContent;
+      btn.textContent = t('diag.recording');
+      try {
+        const res = await probeMic(6000, { mode: m });
+        tests.push({
+          mode: m, recorded: res.recorded, bytes: res.diag.blobBytes, transcript: res.transcript,
+          status: res.asr.status, error: res.asr.error, restarts: res.diag.restarts,
+          errors: res.diag.errors, events: res.diag.events,
+        });
+        clear(out).append(
+          h('h3', {}, `${t('diag.result')}: ${modeName(m)}`),
+          res.url ? h('audio', { src: res.url, controls: '' }) : null,
+          h('p', { class: res.asrWorked ? 'ok-line' : 'hint' }, t('diag.heard'), ' ',
+            ltr(h('span', {}, res.transcript ? `"${res.transcript}"` : t('diag.nothing')))),
+          h('p', { class: 'hint small' }, `${res.asr.status}${res.asr.error ? ` (${res.asr.error})` : ''} · ${res.diag.blobBytes} bytes · ${res.diag.restarts} restarts`),
+          res.asrWorked ? h('button', {
+            class: 'btn primary wide', type: 'button',
+            onClick: () => {
+              const caps = store.get().caps;
+              store.update({ caps: { ...caps, captureMode: m } });
+              setCaptureConfig({ mode: m });
+              refreshCurrent();
+              toast(t('diag.saved'), 'info');
+            },
+          }, t('diag.use')) : null,
+        );
+      } catch (err) {
+        clear(out).append(micError(err));
+      }
+      btn.textContent = label;
+      btn.disabled = false;
+    });
+    return btn;
+  });
+
+  refreshCurrent();
+  show(h('div', {},
+    h('div', { class: 'card' },
+      h('h2', {}, t('diag.title')),
+      h('p', { class: 'hint small' }, t('diag.intro')),
+      ltr(h('p', { class: 'target' }, t('sc.probeSentence'))),
+      currentEl,
+      h('p', { class: 'hint small' }, t('diag.stats', {
+        g: p.captureStats?.graded || 0, u: p.captureStats?.ungraded || 0,
+      })),
+      ...buttons,
+      out,
+      h('button', {
+        class: 'btn ghost wide', type: 'button',
+        onClick: () => {
+          const caps = store.get().caps;
+          store.update({ caps: { ...caps, captureMode: 'auto' } });
+          setCaptureConfig({ mode: 'auto' });
+          refreshCurrent();
+          toast(t('diag.saved'), 'info');
+        },
+      }, t('diag.auto')),
+      h('button', { class: 'btn primary wide', type: 'button', onClick: copyReport }, t('diag.copy')),
+      reportArea,
+    ),
+  ));
+}
+
+// ------------------------------------------------------ capture learning
+
+/**
+ * Every finished attempt lands here (speech.js onCaptureFinished). It is
+ * persisted for the Speech Lab report, and in `auto` mode two silent misses in
+ * a row - a real recording, recognition supported, no error, still no words -
+ * flip the recorder/recogniser start order, since that signature points at an
+ * audio-session conflict rather than a permission block. Any graded attempt
+ * resets the count.
+ */
+function learnFromCapture(diag) {
+  const r = store.recordCapture(diag);
+  const caps = store.get().caps;
+  if (!r.silentMiss || (caps.captureMode && caps.captureMode !== 'auto')) return;
+  if (diag.mode !== effectiveMode() || r.stats.silentMisses < 2) return;
+  const learned = caps.captureLearned === 'asr-first' ? 'rec-first' : 'asr-first';
+  r.stats.silentMisses = 0;
+  store.update({ caps: { ...caps, captureLearned: learned } });
+  setCaptureConfig({ learned });
 }
 
 // ----------------------------------------------------------------- drills
@@ -915,6 +1126,7 @@ function route() {
     case hash === '#/soundcheck': return viewSoundCheck();
     case hash === '#/budget': return viewBudget();
     case hash === '#/placement': return viewPlacement();
+    case hash === '#/diag': return viewDiag();
     case hash === '#/today': return p.onboarded ? viewToday() : viewWelcome();
     case hash === '#/progress': return p.onboarded ? viewProgress() : viewWelcome();
     case hash === '#/more': return p.onboarded ? viewMore() : viewWelcome();
@@ -939,6 +1151,10 @@ function buildNav() {
 setLang(store.get().lang || 'he');
 applyDir();
 primeVoices();
+// Ask the browser not to evict our storage; best effort, Safari may ignore it.
+try { navigator.storage?.persist?.(); } catch { /* unsupported */ }
+setCaptureConfig({ mode: store.get().caps?.captureMode, learned: store.get().caps?.captureLearned });
+onCaptureFinished(learnFromCapture);
 
 window.addEventListener('hashchange', () => { route(); buildNav(); });
 route();
