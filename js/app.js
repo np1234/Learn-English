@@ -357,7 +357,7 @@ function viewPlacement() {
         btn.textContent = t('pl.processing');
         const cap = capture; capture = null;
         const result = await cap.stop();
-        const scored = item.text ? scoreAttempt(item.text, result.transcript, result.seconds) : null;
+        const scored = item.text ? scoreAttempt(item.text, result.transcript, result.seconds, { alternatives: result.alternatives, confidence: result.confidence }) : null;
         // A reading the recogniser only partly caught must not lower his
         // starting speech level by two bands - treat it as unscored.
         const counts = countsTowardStats(scored);

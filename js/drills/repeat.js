@@ -89,7 +89,7 @@ export function mount(root, { level, weakTags, count = 6, onFinish }) {
       onResult: (result) => {
         revokeUrl(lastUrl);
         lastUrl = result.url;
-        const scored = scoreAttempt(s.text, result.transcript, result.seconds);
+        const scored = scoreAttempt(s.text, result.transcript, result.seconds, { alternatives: result.alternatives, confidence: result.confidence });
         // An attempt the recogniser only caught part of is shown but never
         // counted: its "missing" words were not judged, just not heard.
         const counts = countsTowardStats(scored);

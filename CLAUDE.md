@@ -517,6 +517,7 @@ withhold it against, and it runs on `budget.listening` from day one.
   show it as "only part of it was heard", do NOT record it into `recordTagScores` /
   `recordAccuracy` / placement (use `countsTowardStats(scored)`), and never offer to save it as a
   checkpoint. A genuine mispronunciation is not unreliable.
+- **Precision layer (n-best + weighted alignment).** `Capture` asks for `maxAlternatives = 5` and keeps, per final result, up to 3 hypotheses whose confidence is >= 50% of the best (none without a reported confidence - iOS - so no leniency without evidence); `stop()` returns them as `alternatives`, and `transcript` is still the best guess only. `scoreAttempt(target, transcript, seconds, {alternatives, confidence})` picks per result the hypothesis that best matches the target, but only if the best guesses reproduce the transcript exactly. `align()` is a weighted edit distance (substitution cost by word similarity, so adjacent errors pair with the most similar target word), accepts split/merged words (any more/anymore, into/in to), and treats true homophones (`HOMOPHONE_CLASSES`) as equal - never add a pair a Hebrew speaker actually confuses (ship/sheep, wet/vet, think/sink). A same-first-letter substitution with similarity >= 0.75 is status `near` (half credit, amber, not credited to per-sound stats). Engine confidence < 0.35 sets `lowConfidence`, which `countsTowardStats` rejects.
 - Shared feedback is `attemptFeedback(scored, result)` in `drills/common.js` - spread its returned
   array into `append()` (append stringifies arrays/null).
 

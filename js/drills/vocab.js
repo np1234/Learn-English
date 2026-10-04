@@ -147,7 +147,7 @@ export function mount(root, { onFinish }) {
         onResult: (result) => {
           revokeUrl(lastUrl);
           lastUrl = result.url;
-          const scored = scoreAttempt(entry.example, result.transcript, result.seconds);
+          const scored = scoreAttempt(entry.example, result.transcript, result.seconds, { alternatives: result.alternatives, confidence: result.confidence });
           if (countsTowardStats(scored)) {
             store.recordTagScores(tagScores(scored.words));
             suggested = gradeFromAccuracy(scored.accuracy);

@@ -99,7 +99,7 @@ export function mount(root, { level, count = 2, onFinish }) {
         onResult: (result) => {
           revokeUrl(lastUrl);
           lastUrl = result.url;
-          const scored = scoreAttempt(text, result.transcript, result.seconds);
+          const scored = scoreAttempt(text, result.transcript, result.seconds, { alternatives: result.alternatives, confidence: result.confidence });
           results[i] = { accuracy: countsTowardStats(scored) ? scored.accuracy : null };
           clear(feedback).append(
             // Pre-filtered array to spread - see common.js attemptFeedback().

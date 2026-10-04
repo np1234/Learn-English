@@ -209,6 +209,7 @@ button { -webkit-tap-highlight-color: transparent; }
 .word.ok      { background: rgba(22, 163, 74, .14); }
 .word.wrong   { background: rgba(220, 38, 38, .16); text-decoration: underline wavy var(--weak); }
 .word.missing { background: rgba(209, 134, 22, .16); opacity: .75; }
+.word.near    { background: rgba(209, 134, 22, .22); text-decoration: underline dotted var(--ok); }
 .word.unknown { background: transparent; }
 
 /* ------------------------------------------- per-word mistake detail

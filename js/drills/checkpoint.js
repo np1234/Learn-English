@@ -29,7 +29,7 @@ export function mount(root, { slot, week, onFinish }) {
       onResult: (result) => {
         revokeUrl(lastUrl);
         lastUrl = result.url;
-        const scored = scoreAttempt(CHECKPOINT_TEXT, result.transcript, result.seconds);
+        const scored = scoreAttempt(CHECKPOINT_TEXT, result.transcript, result.seconds, { alternatives: result.alternatives, confidence: result.confidence });
         const counts = countsTowardStats(scored);
         const words = scored.scored ? scored.words.filter((w) => w.status !== 'missing').length : 0;
         const rate = counts && result.seconds > 0 ? Math.round((words / result.seconds) * 60) : null;

@@ -123,7 +123,7 @@ export function mount(root, { level, onFinish }) {
       onResult: (result) => {
         revokeUrl(lastUrl);
         lastUrl = result.url;
-        const scored = scoreAttempt(chosenOption.text, result.transcript, result.seconds);
+        const scored = scoreAttempt(chosenOption.text, result.transcript, result.seconds, { alternatives: result.alternatives, confidence: result.confidence });
         const counts = countsTowardStats(scored);
         if (counts) store.recordTagScores(tagScores(scored.words));
         results[turnIdx] = {

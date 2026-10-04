@@ -52,7 +52,7 @@ function installFakes(win, opts = {}) {
         if (opts.srError) { this.onerror?.({ error: opts.srError }); this.running = false; this.onend?.(); return; }
         const spec = sessions[n - 1]; // later restarts hear nothing, like a real silent session
         if (spec && spec.length) {
-          const results = spec.map((r) => { const alt = [{ transcript: r.final ?? r.interim, confidence: 0.9 }]; alt.isFinal = r.final !== undefined; return alt; });
+          const results = spec.map((r) => { const alt = [{ transcript: r.final ?? r.interim, confidence: 0.9 }, ...(r.alts || []).map(([transcript, confidence]) => ({ transcript, confidence }))]; alt.isFinal = r.final !== undefined; return alt; });
           this.onresult?.({ resultIndex: 0, results });
         }
         if (!opts.neverEnd) { this.running = false; this.onend?.(); }
@@ -176,6 +176,44 @@ try {
     ok(!r.unreliable && sc.countsTowardStats(r));
   });
   await test('filler-only transcript is unscored', () => eq(sc.scoreAttempt('Hello there.', 'um uh', 2).scored, false));
+  await test('homophones are not errors', () => {
+    eq(acc('Their car is over there.', 'there car is over their'), 1);
+    eq(acc('I will write to you.', 'I will right too you'), 1);
+  });
+  await test('real Hebrew-L1 confusions stay errors', () => {
+    ok(acc('I think so.', 'I sink so') < 1); ok(acc('A very big ship.', 'a wery big sheep') < 0.75);
+    ok(acc('It is wet.', 'it is vet') < 1);
+  });
+  await test('split and merged words are accepted', () => {
+    eq(acc('I cannot wait any more.', 'I can not wait anymore'), 1);
+    eq(acc('Come into the office.', 'come in to the office'), 1);
+    eq(acc('We sell a lot.', 'we sell alot'), 1);
+  });
+  await test('near miss is "near" with half credit', () => {
+    const r = sc.scoreAttempt('The price is very fair.', 'the price is vary fair', 3);
+    eq(r.words[3].status, 'near'); eq(r.accuracy, 0.9);
+  });
+  await test('adjacent errors pair with the most similar target word', () => {
+    const r = sc.scoreAttempt('I think the weather is warm.', 'I sink the vether is varm', 3);
+    eq(r.words.map((w) => w.status), ['ok', 'wrong', 'ok', 'wrong', 'ok', 'wrong']);
+    eq(r.words[1].heard, 'sink'); eq(r.words[3].heard, 'vether'); eq(r.words[5].heard, 'varm');
+    const q = sc.scoreAttempt('three big red cars', 'tree beg rad cars', 3);
+    eq(q.words.map((w) => w.heard), ['tree', 'beg', 'rad', 'cars']);
+  });
+  await test('best alternative is used; no alternatives changes nothing', () => {
+    const alts = [[{ text: 'I sink it is here', confidence: 0.8 }, { text: 'I think it is here', confidence: 0.6 }]];
+    const r = sc.scoreAttempt('I think it is here.', 'I sink it is here', 3, { alternatives: alts });
+    eq(r.accuracy, 1); eq(r.usedAlternatives, 1);
+    eq(sc.scoreAttempt('I think it is here.', 'I sink it is here', 3).usedAlternatives, 0);
+    eq(sc.scoreAttempt('I think it is here.', 'I sink it is here', 3, { alternatives: [[{ text: 'I sink it is here', confidence: 0 }]] }).accuracy, 0.8);
+    // segments that do not reproduce the transcript (interim mixed in) are ignored
+    eq(sc.scoreAttempt('I think it is here.', 'I sink it is here', 3, { alternatives: [[{ text: 'something else', confidence: 1 }, { text: 'I think it is here', confidence: 0.9 }]] }).usedAlternatives, 0);
+  });
+  await test('low engine confidence never feeds stats', () => {
+    const r = sc.scoreAttempt('I think it is here.', 'I sink it is here', 3, { confidence: 0.2 });
+    ok(r.lowConfidence && r.words[1].uncertain && !sc.countsTowardStats(r));
+    ok(sc.countsTowardStats(sc.scoreAttempt('I think it is here.', 'I sink it is here', 3, { confidence: 0.9 })));
+  });
 
   // ------------------------------------------------------------- phonetics
   suite('content integrity');
@@ -349,6 +387,13 @@ try {
     const c = new m.Capture({ mode: 'both-rec-first' }); await c.start(); await wait(300);
     const r = await c.stop();
     eq(r.transcript, 'hello there'); ok(r.blob && r.blob.size > 0); eq(r.asr.status, 'ok');
+  });
+  await test('n-best alternatives are filtered and the transcript is unchanged', async () => {
+    const { m } = await fresh({ sessions: [[{ final: 'I sink it', alts: [['I think it', 0.8], ['eye think it', 0.2], ['I thing it', 0.7], ['I thinks it', 0.6]] }]] });
+    const c = new m.Capture({ mode: 'both-rec-first' }); await c.start(); await wait(300);
+    const r = await c.stop();
+    eq(r.transcript, 'I sink it');
+    eq(r.alternatives.length, 1); eq(r.alternatives[0].map((a) => a.text), ['I sink it', 'I think it', 'I thing it']);
   });
   await test('recognition restarts after a pause and the transcript accumulates', async () => {
     const { m, starts } = await fresh({ sessions: [[{ final: 'I would rather' }], [{ final: 'walk than wait' }]] });

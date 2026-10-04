@@ -105,7 +105,7 @@ export function mount(root, { onFinish }) {
       onResult: (result) => {
         revokeUrl(lastUrl);
         lastUrl = result.url;
-        const scored = scoreAttempt(item.spoken, result.transcript, result.seconds);
+        const scored = scoreAttempt(item.spoken, result.transcript, result.seconds, { alternatives: result.alternatives, confidence: result.confidence });
         spoken += 1;
         clear(feedback).append(
           ...attemptFeedback(scored, result),

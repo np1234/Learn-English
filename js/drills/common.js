@@ -190,18 +190,18 @@ function bestTag(word) {
 }
 
 export function renderMistakes(scored) {
-  const bad = scored.words.filter((w) => w.status === 'wrong' || w.status === 'missing');
+  const bad = scored.words.filter((w) => w.status === 'wrong' || w.status === 'near' || w.status === 'missing');
   if (!bad.length) return null;
 
   const items = bad.map((w) => {
     // Missing words have no heard audio to diagnose a sound against, so they
     // never get phonetic coaching - only a plain, honest explanation.
-    const tag = w.status === 'wrong' ? bestTag(w.word) : null;
+    const tag = w.status !== 'missing' ? bestTag(w.word) : null;
 
     const head = h('div', { class: `miss-head ${w.status}` },
       ltr(h('span', { class: 'miss-word' }, w.word)),
       h('span', { class: 'miss-said' }, w.status === 'missing' ? t('d.notHeard') : t('d.youSaid')),
-      w.status === 'wrong' ? ltr(h('span', { class: 'miss-heard' }, w.heard)) : null,
+      w.status !== 'missing' ? ltr(h('span', { class: 'miss-heard' }, w.heard)) : null,
     );
 
     let body;
@@ -221,7 +221,7 @@ export function renderMistakes(scored) {
       // Plain vocabulary miss, or a missing word: no sound to blame, so no
       // invented phonetics - just an honest, actionable line.
       body = h('p', { class: 'miss-plain' },
-        w.status === 'missing' ? t('d.missedWordHint') : t('d.wrongWordHint'));
+        w.status === 'missing' ? t('d.missedWordHint') : w.status === 'near' ? t('d.nearHint') : t('d.wrongWordHint'));
     }
 
     return h('div', { class: 'miss-item' }, head, body);

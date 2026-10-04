@@ -228,6 +228,8 @@ const S = {
 
   'd.youSaid':           { en: 'You said:', he: 'אמרת:' },
   'd.notHeard':          { en: 'Not heard at all', he: 'לא נשמע בכלל' },
+  'd.nearHint':          { en: 'Very close - about one sound off. Listen to the model once more.',
+                           he: 'כמעט - בערך צליל אחד שונה. הקשב שוב למודל.' },
   'd.wrongWordHint':     { en: 'Not quite this word. Listen to the model again and try to match it exactly.',
                            he: 'לא בדיוק המילה הזו. הקשב שוב למודל ונסה להתאים אליו במדויק.' },
   'd.missedWordHint':    { en: 'This word did not come through at all - maybe skipped, said too fast, or too quiet. Say it clearly on its own.',

@@ -130,32 +130,110 @@ export function tokenize(text) {
   return n ? n.split(' ').filter((w) => w && !FILLER.has(w)) : [];
 }
 
+// True homophones, one class per row. Audibly identical, so a recogniser
+// choosing the other spelling says nothing about his pronunciation. Pairs a
+// Hebrew speaker really confuses (live/leave, ship/sheep, wet/vet, think/sink,
+// full/fool) are deliberately NOT here - those are the errors being trained.
+// weather/whether and which/witch are included: wh- vs w- is no distinction
+// a Hebrew L1 speaker makes, so it cannot be graded.
+const HOMOPHONE_CLASSES = [
+  ['to', 'too', 'two'], ['their', 'there'], ['hear', 'here'], ['write', 'right'],
+  ['for', 'four', 'fore'], ['no', 'know'], ['by', 'buy', 'bye'], ['would', 'wood'],
+  ['new', 'knew'], ['one', 'won'], ['our', 'hour'], ['see', 'sea'], ['be', 'bee'],
+  ['sun', 'son'], ['whole', 'hole'], ['week', 'weak'], ['meet', 'meat'],
+  ['sale', 'sail'], ['sent', 'cent', 'scent'], ['plain', 'plane'], ['peace', 'piece'],
+  ['wait', 'weight'], ['way', 'weigh'], ['which', 'witch'], ['whether', 'weather'],
+  ['wear', 'where'], ['threw', 'through'], ['pair', 'pear'], ['road', 'rode'],
+  ['tail', 'tale'], ['mail', 'male'], ['steal', 'steel'], ['bear', 'bare'],
+  ['allowed', 'aloud'], ['break', 'brake'], ['board', 'bored'], ['course', 'coarse'],
+  ['flour', 'flower'], ['higher', 'hire'], ['principal', 'principle'],
+  ['wine', 'whine'], ['your', 'youre'],
+];
+const HOMOPHONE = new Map();
+for (const cls of HOMOPHONE_CLASSES) for (const w of cls) if (!HOMOPHONE.has(w)) HOMOPHONE.set(w, cls[0]);
+const canon = (w) => HOMOPHONE.get(w) || w;
+const sameWord = (a, b) => a === b || canon(a) === canon(b);
+
+/** 1 = identical ... 0 = nothing in common (normalised edit distance). */
+function similarity(a, b) {
+  if (a === b) return 1;
+  const n = a.length, m = b.length;
+  if (!n || !m) return 0;
+  let prev = Array.from({ length: m + 1 }, (_, j) => j);
+  for (let i = 1; i <= n; i++) {
+    const cur = [i];
+    for (let j = 1; j <= m; j++) {
+      cur[j] = Math.min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+    }
+    prev = cur;
+  }
+  return 1 - prev[m] / Math.max(n, m);
+}
+
+const NEAR_SIMILARITY = 0.75;   // a substitution this close (same first letter) is "near"
+const MIN_SUB_COST = 0.3;       // a substitution never beats an exact match
+
+function isNear(target, heard) {
+  return target[0] === heard[0] && similarity(target, heard) >= NEAR_SIMILARITY;
+}
+
 /**
- * Word-level alignment by Levenshtein backtrace.
- * Returns one entry per TARGET word: ok | wrong | missing.
+ * Word-level alignment (weighted edit distance with backtrace).
+ * Returns one entry per TARGET word: ok | near | wrong | missing.
+ *
+ * Substitutions cost by how different the words are, so with several
+ * adjacent errors each heard word pairs with the target word it most
+ * resembles instead of an arbitrary neighbour. A target pair heard as one
+ * word ("any more" / "anymore") or the reverse ("into" / "in to") is correct.
  */
 export function align(targetWords, saidWords) {
   const n = targetWords.length;
   const m = saidWords.length;
-  const d = Array.from({ length: n + 1 }, () => new Array(m + 1).fill(0));
-  for (let i = 0; i <= n; i++) d[i][0] = i;
-  for (let j = 0; j <= m; j++) d[0][j] = j;
-
-  for (let i = 1; i <= n; i++) {
-    for (let j = 1; j <= m; j++) {
-      const cost = targetWords[i - 1] === saidWords[j - 1] ? 0 : 1;
-      d[i][j] = Math.min(d[i - 1][j] + 1, d[i][j - 1] + 1, d[i - 1][j - 1] + cost);
+  const INF = 1e9;
+  const d = Array.from({ length: n + 1 }, () => new Array(m + 1).fill(INF));
+  const mv = Array.from({ length: n + 1 }, () => new Array(m + 1).fill(''));
+  d[0][0] = 0;
+  const relax = (i, j, cost, move) => {
+    if (cost < d[i][j] - 1e-9) { d[i][j] = cost; mv[i][j] = move; }
+  };
+  for (let i = 0; i <= n; i++) {
+    for (let j = 0; j <= m; j++) {
+      if (i === 0 && j === 0) continue;
+      // Order = tie-break preference: diagonal, merge/split, missing, insertion.
+      if (i > 0 && j > 0) {
+        const t = targetWords[i - 1], s = saidWords[j - 1];
+        const cost = sameWord(t, s) ? 0 : Math.max(MIN_SUB_COST, 1 - similarity(t, s));
+        relax(i, j, d[i - 1][j - 1] + cost, 'diag');
+      }
+      if (i > 1 && j > 0 && sameWord(targetWords[i - 2] + targetWords[i - 1], saidWords[j - 1])) {
+        relax(i, j, d[i - 2][j - 1], 'merge');
+      }
+      if (i > 0 && j > 1 && sameWord(targetWords[i - 1], saidWords[j - 2] + saidWords[j - 1])) {
+        relax(i, j, d[i - 1][j - 2], 'split');
+      }
+      if (i > 0) relax(i, j, d[i - 1][j] + 1, 'miss');
+      if (j > 0) relax(i, j, d[i][j - 1] + 1, 'ins');
     }
   }
 
   const out = [];
   let i = n, j = m;
-  while (i > 0) {
-    const cost = j > 0 && targetWords[i - 1] === saidWords[j - 1] ? 0 : 1;
-    if (j > 0 && d[i][j] === d[i - 1][j - 1] + cost) {
-      out.push({ word: targetWords[i - 1], status: cost === 0 ? 'ok' : 'wrong', heard: saidWords[j - 1] });
+  while (i > 0 || j > 0) {
+    const move = mv[i][j];
+    if (move === 'diag') {
+      const t = targetWords[i - 1], s = saidWords[j - 1];
+      const status = sameWord(t, s) ? 'ok' : isNear(t, s) ? 'near' : 'wrong';
+      out.push({ word: t, status, heard: s });
       i--; j--;
-    } else if (d[i][j] === d[i - 1][j] + 1) {
+    } else if (move === 'merge') {
+      const s = saidWords[j - 1];
+      out.push({ word: targetWords[i - 1], status: 'ok', heard: s });
+      out.push({ word: targetWords[i - 2], status: 'ok', heard: s });
+      i -= 2; j--;
+    } else if (move === 'split') {
+      out.push({ word: targetWords[i - 1], status: 'ok', heard: `${saidWords[j - 2]} ${saidWords[j - 1]}` });
+      i--; j -= 2;
+    } else if (move === 'miss') {
       out.push({ word: targetWords[i - 1], status: 'missing', heard: null });
       i--;
     } else {
@@ -163,6 +241,41 @@ export function align(targetWords, saidWords) {
     }
   }
   return out.reverse();
+}
+
+const NEAR_CREDIT = 0.5;
+const weightOf = (words) =>
+  words.reduce((a, w) => a + (w.status === 'ok' ? 1 : w.status === 'near' ? NEAR_CREDIT : 0), 0);
+
+// The engine's own confidence below this means the transcript is a guess;
+// grading it into levels/per-sound stats would punish him for the recogniser.
+const MIN_CONFIDENCE = 0.35;
+
+/**
+ * Pick, per final result, the hypothesis that best matches the target. Only
+ * runs when the segments' best guesses reproduce the transcript exactly (so
+ * interim fallbacks and odd restarts never mix in) and only has candidates when
+ * the engine reported usable confidences (see speech.js pickAlternatives).
+ * Returns {said, used} or null.
+ */
+function chooseAlternatives(target, said, segments) {
+  if (!Array.isArray(segments) || !segments.some((s) => s && s.length > 1)) return null;
+  const toks = segments.map((s) => tokenize(s[0].text));
+  if (toks.flat().join(' ') !== said.join(' ')) return null;
+  const choice = segments.map(() => 0);
+  const tokensOf = (k, a) => (a === 0 ? toks[k] : tokenize(segments[k][a].text));
+  const build = () => segments.flatMap((s, k) => tokensOf(k, choice[k]));
+  let best = weightOf(align(target, build()));
+  segments.forEach((seg, k) => {
+    for (let a = 1; a < seg.length; a++) {
+      const keep = choice[k];
+      choice[k] = a;
+      const w = weightOf(align(target, build()));
+      if (w > best + 1e-9) best = w; else choice[k] = keep;
+    }
+  });
+  const used = choice.filter((c) => c !== 0).length;
+  return used ? { said: build(), used } : null;
 }
 
 // When the recogniser only caught part of an attempt, the unheard words come
@@ -182,9 +295,9 @@ const MIN_HEARD_SHARE = 0.5;      // words recognised at all, right or wrong
  * plainly only caught part of: it is shown, but must NOT be recorded into
  * levels or per-sound stats, because the "missing" words were never judged.
  */
-export function scoreAttempt(targetText, transcript, seconds) {
+export function scoreAttempt(targetText, transcript, seconds, opts = {}) {
   const target = tokenize(targetText);
-  const said = transcript ? tokenize(transcript) : [];
+  let said = transcript ? tokenize(transcript) : [];
   if (!transcript || !target.length || !said.length) {
     return {
       scored: false,
@@ -196,8 +309,11 @@ export function scoreAttempt(targetText, transcript, seconds) {
       transcript: transcript || null,
     };
   }
+  const alt = chooseAlternatives(target, said, opts.alternatives);
+  if (alt) said = alt.said;
   const words = align(target, said);
-  const ok = words.filter((w) => w.status === 'ok').length;
+  const lowConfidence = typeof opts.confidence === 'number' && opts.confidence > 0 && opts.confidence < MIN_CONFIDENCE;
+  if (lowConfidence) for (const w of words) if (w.status === 'wrong' || w.status === 'near') w.uncertain = true;
   const heard = words.filter((w) => w.status !== 'missing').length;
   let tail = 0;
   for (let k = words.length - 1; k >= 0 && words[k].status === 'missing'; k--) tail += 1;
@@ -211,8 +327,10 @@ export function scoreAttempt(targetText, transcript, seconds) {
   }
   return {
     scored: true,
-    accuracy: ok / target.length,
+    accuracy: weightOf(words) / target.length,
     unreliable,
+    lowConfidence,
+    usedAlternatives: alt ? alt.used : 0,
     reason,
     coverage,
     words,
@@ -223,7 +341,7 @@ export function scoreAttempt(targetText, transcript, seconds) {
 
 /** True when an attempt may feed levels and per-sound stats. */
 export function countsTowardStats(scored) {
-  return !!scored && scored.scored && !scored.unreliable;
+  return !!scored && scored.scored && !scored.unreliable && !scored.lowConfidence;
 }
 
 export function wpm(wordCount, seconds) {

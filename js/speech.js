@@ -265,6 +265,28 @@ const FATAL_ASR = new Set([
 // A two-minute Fluency round with natural pauses restarts a few dozen times.
 const MAX_RESTARTS = 120;
 
+const ALT_MAX = 3;            // hypotheses kept per result, best included
+const ALT_MIN_RATIO = 0.5;    // an alternative must score >= this share of the best
+
+/**
+ * The usable hypotheses of one final result, best first. Without a reported
+ * confidence (iOS Safari sends 0) there is no evidence a lower-ranked guess is
+ * plausible, so only the best is kept: no leniency without evidence.
+ */
+function pickAlternatives(res) {
+  const top = res[0];
+  const best = { text: (top.transcript || '').trim(), confidence: top.confidence || 0 };
+  const out = [best];
+  if (!(best.confidence > 0)) return out;
+  for (let k = 1; k < res.length && out.length < ALT_MAX; k++) {
+    const a = res[k];
+    const text = (a?.transcript || '').trim();
+    const c = typeof a?.confidence === 'number' ? a.confidence : 0;
+    if (text && c >= best.confidence * ALT_MIN_RATIO && !out.some((o) => o.text === text)) out.push({ text, confidence: c });
+  }
+  return out;
+}
+
 /**
  * One capture attempt: records audio and, when available, transcribes it.
  * Recognition runs alongside the recorder and is allowed to fail - the drill
@@ -291,6 +313,7 @@ export class Capture {
     this.recorder = null;
     this.chunks = [];
     this.parts = [];
+    this.altSegments = [];      // per final result: [{text, confidence}], best first
     this.cur = null;            // the live recognition session's {final, interim}
     this.confidences = [];
     this.recognition = null;
@@ -385,7 +408,11 @@ export class Capture {
   _commitSession() {
     if (!this.cur) return;
     const text = [this.cur.final, this.cur.final ? '' : this.cur.interim].join(' ').trim();
-    if (text) this.parts.push(text);
+    if (text) {
+      this.parts.push(text);
+      // Alternatives only describe FINAL text; an interim-only session has none.
+      if (this.cur.final) this.altSegments.push(...(this.cur.segs || []));
+    }
     this.cur = null;
   }
 
@@ -402,7 +429,9 @@ export class Capture {
       // unreliable, so it is only requested off iOS; a non-final result that
       // iOS delivers anyway is still kept the same way.
       r.interimResults = !isIOS;
-      r.maxAlternatives = 1;
+      // n-best list: scoring may pick the hypothesis that matches the target
+      // when the engine itself ranked it close behind its first guess.
+      r.maxAlternatives = 5;
       r.lang = this.lang;
     } catch (err) {
       this._ev('asr-construct-failed', { message: err?.message });
@@ -420,6 +449,7 @@ export class Capture {
       // than from resultIndex, so an interim later promoted to final is never
       // counted twice.
       let final = '', interim = '';
+      const segs = [];
       for (let i = 0; i < e.results.length; i++) {
         const res = e.results[i];
         const alt = res?.[0];
@@ -428,6 +458,7 @@ export class Capture {
         if (!text) continue;
         if (res.isFinal) {
           final += ` ${text}`;
+          segs.push(pickAlternatives(res));
           if (typeof alt.confidence === 'number' && alt.confidence > 0 && i >= (e.resultIndex ?? 0)) {
             this.confidences.push(alt.confidence);
           }
@@ -435,7 +466,7 @@ export class Capture {
           interim += ` ${text}`;
         }
       }
-      this.cur = { final: final.trim(), interim: interim.trim() };
+      this.cur = { final: final.trim(), interim: interim.trim(), segs };
       this.heardSpeech = true;
       this._ev('asr-result', { final: this.cur.final, interim: this.cur.interim });
     };
@@ -530,6 +561,8 @@ export class Capture {
       transcript,
       asr,
       restarts: this.restarts,
+      alternatives: this.altSegments.reduce((n, s) => n + Math.max(0, s.length - 1), 0),
+      confidence: this.confidence,
       errors: this.errors.slice(0, 20),
       heardSpeech: this.heardSpeech,
       events: this.events.slice(0, 60),
@@ -542,6 +575,7 @@ export class Capture {
       seconds,
       transcript,
       confidence: this.confidence,
+      alternatives: this.altSegments.slice(),
       asr,
       diag,
     };
